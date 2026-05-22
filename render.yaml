@@ -1,0 +1,39 @@
+# render.yaml — Render.com deployment configuration
+# Docs: https://render.com/docs/yaml-spec
+
+services:
+  - type: web
+    name: youtube-carousel-agent
+    env: python
+    # Use the $7/month Starter plan to keep the service always-on.
+    # Free tier sleeps after 15 min inactivity and misses WebSub pings.
+    plan: starter
+    region: singapore        # closest to India for lower latency
+    pythonVersion: "3.11"
+
+    buildCommand: |
+      pip install -r requirements.txt &&
+      playwright install chromium &&
+      playwright install-deps chromium
+
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+
+    # Health-check so Render knows the service is alive
+    healthCheckPath: /health
+
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false          # Set in Render dashboard — never commit this value
+
+      - key: GMAIL_APP_PASSWORD
+        sync: false          # Set in Render dashboard — never commit this value
+
+      - key: CALLBACK_BASE_URL
+        sync: false          # Set to your Render service URL, e.g.
+                             # https://youtube-carousel-agent.onrender.com
+
+      - key: PYTHONUNBUFFERED
+        value: "1"           # Ensures logs appear in real time in the Render console
+
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: "/opt/render/project/.playwright"

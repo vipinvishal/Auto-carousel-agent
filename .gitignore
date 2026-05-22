@@ -1,0 +1,16 @@
+# Secrets — never commit
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Output (generated PNGs and HTML)
+output/
+
+# macOS
+.DS_Store
