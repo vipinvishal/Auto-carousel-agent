@@ -10,6 +10,7 @@ Tracks the last processed video ID in last_video.txt.
 import logging
 import os
 import sys
+import tempfile
 
 import yt_dlp
 
@@ -27,6 +28,13 @@ LAST_VIDEO_FILE = "last_video.txt"
 CHANNEL_URL     = f"https://www.youtube.com/@vaibhavsisinty/videos"
 
 
+def _cookie_opt() -> dict:
+    cookie_file = os.environ.get("YOUTUBE_COOKIE_FILE", "")
+    if cookie_file and os.path.exists(cookie_file):
+        return {"cookiefile": cookie_file}
+    return {}
+
+
 def get_latest_video() -> tuple[str, str]:
     """
     Fetch the most recently uploaded video from the channel.
@@ -35,8 +43,9 @@ def get_latest_video() -> tuple[str, str]:
     ydl_opts = {
         "quiet":        True,
         "no_warnings":  True,
-        "extract_flat": True,   # don't download, just list metadata
-        "playlist_end": 1,      # only need the latest video
+        "extract_flat": True,
+        "playlist_end": 1,
+        **_cookie_opt(),
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

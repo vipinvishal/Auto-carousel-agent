@@ -10,6 +10,7 @@ yt-dlp uses YouTube's InnerTube API which is not subject to the same block.
 """
 
 import logging
+import os
 import requests
 import yt_dlp
 
@@ -20,18 +21,31 @@ _LANG_PREFERENCE = ["en", "en-US", "en-GB", "en-IN", "hi"]
 
 # ── Primary: yt-dlp (cloud-safe) ─────────────────────────────────────────────
 
+def _cookie_opt() -> dict:
+    """Return cookiefile option if YOUTUBE_COOKIE_FILE env var is set."""
+    cookie_file = os.environ.get("YOUTUBE_COOKIE_FILE", "")
+    if cookie_file and os.path.exists(cookie_file):
+        logger.info("Using YouTube cookies from %s", cookie_file)
+        return {"cookiefile": cookie_file}
+    return {}
+
+
 def get_transcript(video_id: str) -> str:
     """
     Fetch the full transcript text using yt-dlp.
-    Works from GitHub Actions, Render, and local machines.
+    Works from GitHub Actions (with cookies) and local machines.
+
+    Set YOUTUBE_COOKIE_FILE env var to a Netscape-format cookie file
+    to bypass YouTube's cloud IP bot detection.
 
     Raises:
         RuntimeError: if no transcript can be fetched.
     """
     ydl_opts = {
-        "quiet":       True,
-        "no_warnings": True,
+        "quiet":         True,
+        "no_warnings":   True,
         "skip_download": True,
+        **_cookie_opt(),
     }
 
     try:
