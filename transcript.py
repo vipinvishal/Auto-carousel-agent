@@ -1,79 +1,95 @@
 """
 transcript.py — Fetch YouTube transcript and video metadata.
-Uses youtube-transcript-api for captions and the public oEmbed endpoint
-for the video title (no API key required).
 
-Supports youtube-transcript-api >= 1.0 (instance-based API).
+Uses yt-dlp as the primary method (works from cloud IPs like GitHub Actions).
+youtube-transcript-api is kept as a local fallback only.
+
+Why yt-dlp: youtube-transcript-api makes direct HTTP requests to YouTube's
+transcript endpoint, which is blocked from cloud provider IPs (AWS, GCP, Azure).
+yt-dlp uses YouTube's InnerTube API which is not subject to the same block.
 """
 
 import logging
 import requests
-from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import (
-    TranscriptsDisabled,
-    NoTranscriptFound,
-    VideoUnavailable,
-    CouldNotRetrieveTranscript,
-)
+import yt_dlp
 
 logger = logging.getLogger(__name__)
 
-# Language preference order: English first, then common Indian English variants, then Hindi
-_LANG_PREFERENCE = ["en", "en-IN", "en-GB", "en-US", "hi"]
+_LANG_PREFERENCE = ["en", "en-US", "en-GB", "en-IN", "hi"]
 
+
+# ── Primary: yt-dlp (cloud-safe) ─────────────────────────────────────────────
 
 def get_transcript(video_id: str) -> str:
     """
-    Return the full transcript text for a YouTube video.
-    Tries languages in preference order and falls back to any available
-    transcript if preferred languages are missing.
+    Fetch the full transcript text using yt-dlp.
+    Works from GitHub Actions, Render, and local machines.
 
     Raises:
-        RuntimeError: if no transcript can be fetched for any reason.
+        RuntimeError: if no transcript can be fetched.
     """
-    api = YouTubeTranscriptApi()
-    try:
-        # fetch() tries languages in order and raises NoTranscriptFound if none match
-        fetched = api.fetch(video_id, languages=_LANG_PREFERENCE)
-        text = " ".join(entry.text for entry in fetched)
-        logger.info("Transcript fetched: %d chars for video %s", len(text), video_id)
-        return text
-    except NoTranscriptFound:
-        # Fall back: list all transcripts and grab the first available one
-        try:
-            transcript_list = api.list(video_id)
-            # find_generated_transcript searches auto-generated captions
-            transcript = transcript_list.find_generated_transcript(_LANG_PREFERENCE)
-            fetched = transcript.fetch()
-            text = " ".join(entry.text for entry in fetched)
-            logger.info(
-                "Auto-generated transcript fetched: %d chars for video %s",
-                len(text),
-                video_id,
-            )
-            return text
-        except Exception as inner_exc:
-            raise RuntimeError(
-                f"No transcript available for video {video_id}: {inner_exc}"
-            ) from inner_exc
-    except TranscriptsDisabled:
-        raise RuntimeError(f"Transcripts are disabled for video {video_id}.")
-    except VideoUnavailable:
-        raise RuntimeError(f"Video {video_id} is unavailable.")
-    except CouldNotRetrieveTranscript as exc:
-        raise RuntimeError(
-            f"Could not retrieve transcript for {video_id}: {exc}"
-        ) from exc
-    except Exception as exc:
-        raise RuntimeError(
-            f"Unexpected error fetching transcript for {video_id}: {exc}"
-        ) from exc
+    ydl_opts = {
+        "quiet":       True,
+        "no_warnings": True,
+        "skip_download": True,
+    }
 
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(
+                f"https://www.youtube.com/watch?v={video_id}",
+                download=False,
+            )
+    except Exception as exc:
+        raise RuntimeError(f"yt-dlp failed to fetch video info for {video_id}: {exc}") from exc
+
+    # Try manual subtitles first, then auto-generated captions
+    for caps_key in ("subtitles", "automatic_captions"):
+        caps = info.get(caps_key) or {}
+        for lang in _LANG_PREFERENCE:
+            if lang not in caps:
+                continue
+            for fmt in caps[lang]:
+                if fmt.get("ext") == "json3":
+                    text = _fetch_and_parse_json3(fmt["url"])
+                    if text:
+                        logger.info(
+                            "Transcript fetched via yt-dlp (%s, %s): %d chars",
+                            caps_key, lang, len(text),
+                        )
+                        return text
+
+    raise RuntimeError(
+        f"No transcript found for {video_id}. "
+        "The video may not have captions enabled."
+    )
+
+
+def _fetch_and_parse_json3(url: str) -> str:
+    """Download a json3-format subtitle file and return plain text."""
+    try:
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:
+        logger.warning("Failed to download subtitle file: %s", exc)
+        return ""
+
+    texts = []
+    for event in data.get("events", []):
+        for seg in event.get("segs", []):
+            t = seg.get("utf8", "").strip()
+            if t and t != "\n":
+                texts.append(t)
+    return " ".join(texts)
+
+
+# ── Video title ───────────────────────────────────────────────────────────────
 
 def get_video_title(video_id: str) -> str:
     """
-    Return the video title using the public YouTube oEmbed endpoint.
-    Falls back to a generic title if the request fails.
+    Return the video title via oEmbed (no API key needed).
+    Falls back to a generic title on failure.
     """
     try:
         url = (
