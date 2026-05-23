@@ -1,102 +1,111 @@
 """
 claude_api.py — AI content generation using Groq (free tier).
-Fixed: better prompt with examples, larger transcript window, lower temperature.
+
+Converts a trending AI/Cloud news article into Instagram carousel content.
 """
 
 import json
 import logging
+
 from groq import Groq
+
 import config
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = """You are a brutal, no-fluff social media content strategist.
-You extract SPECIFIC, SURPRISING, CONCRETE insights from transcripts.
-You NEVER write generic filler like "AI is changing things" or "Learn new skills".
-Every point must make the reader think "wow I didn't know that" or "that's exactly my problem".
+_SYSTEM_PROMPT = """You are a brutal, no-fluff AI/Tech content strategist for Instagram.
+You convert trending AI and Cloud news articles into high-impact carousel content.
+You extract SPECIFIC, SURPRISING, CONCRETE facts — not vague summaries.
+You NEVER write generic filler like "AI is changing things" or "The future is here".
+Every point must make the reader think "I didn't know that" or "this affects me now".
 You always respond with valid JSON only — no markdown fences, no explanation."""
 
-_USER_TEMPLATE = """YouTube video titled: "{title}"
+_USER_TEMPLATE = """Trending AI/Cloud headline: "{title}"
 
-FULL TRANSCRIPT:
-{transcript}
+ARTICLE TEXT:
+{article}
 
 ---
 
-TASK: Create an 8-slide Instagram carousel from this transcript for @VipinAIHub (AI education audience).
+TASK: Create an 8-slide Instagram carousel for @VipinAIHub (AI/Cloud education audience).
 
-CRITICAL RULES FOR CONTENT QUALITY:
-- Extract SPECIFIC facts, numbers, names, tools from the transcript — not vague summaries
-- Slide 1 title MUST be a scroll-stopping hook with a specific claim or surprising fact from the video
-- Every bullet point must be SPECIFIC — mention actual tool names, actual numbers, actual outcomes
+CRITICAL RULES:
+- Pull SPECIFIC facts from the article: tool names, numbers, company names, benchmarks, dates
+- Slide 1 title MUST be a scroll-stopping hook with the most surprising fact from the article
+- Every bullet point must mention something concrete — no vague claims
+- Slide 8 is always the CTA / follow slide
 - Write like you're texting a smart friend — no corporate speak, no filler
 
 BAD examples (never write like this):
 - "AI is changing things fast"
-- "Robots learn new skills"  
+- "Cloud adoption is growing"
 - "The future is here"
-- "Learn and grow"
+- "New tools are available"
 
 GOOD examples (write like this):
-- "Claude built a full app in 3 hrs — took humans 6 months"
-- "GPT-4o now sees, hears and responds in real-time"
-- "This one prompt saves 4 hours of manual work daily"
-- "Vaibhav's agency went from 0 to ₹1Cr using just 3 AI tools"
+- "GPT-5 scores 90% on MMLU — beats humans at bar exam"
+- "AWS cuts GPU spot price by 40% — ML training just got cheaper"
+- "Google's Gemini Ultra 2 beats GPT-4 on 30/32 benchmarks"
+- "Meta releases Llama 3.1 — 70B model runs on a single A100"
 
 Return a single JSON object with EXACTLY this shape:
 {{
-  "summary": "2-3 sentence summary with SPECIFIC details from the video — mention actual tools, numbers, or outcomes",
+  "summary": "2-3 sentence summary with SPECIFIC details from the article — mention actual tools, numbers, or company names",
   "bullets": [
-    "Specific insight 1 from transcript — max 15 words, must include a concrete detail",
-    "Specific insight 2 from transcript — max 15 words, must include a concrete detail",
-    "Specific insight 3 from transcript — max 15 words, must include a concrete detail",
-    "Specific insight 4 from transcript — max 15 words, must include a concrete detail",
-    "Specific insight 5 from transcript — max 15 words, must include a concrete detail",
-    "Specific insight 6 from transcript — max 15 words, must include a concrete detail"
+    "Specific insight 1 — max 15 words, must include a concrete detail",
+    "Specific insight 2 — max 15 words, must include a concrete detail",
+    "Specific insight 3 — max 15 words, must include a concrete detail",
+    "Specific insight 4 — max 15 words, must include a concrete detail",
+    "Specific insight 5 — max 15 words, must include a concrete detail",
+    "Specific insight 6 — max 15 words, must include a concrete detail"
   ],
   "slide_titles": [
-    "SLIDE 1: Scroll-stopping hook — specific surprising claim from the video (max 8 words)",
-    "SLIDE 2: Specific topic from video (max 6 words)",
-    "SLIDE 3: Specific topic from video (max 6 words)",
-    "SLIDE 4: Specific topic from video (max 6 words)",
-    "SLIDE 5: Specific topic from video (max 6 words)",
-    "SLIDE 6: Specific topic from video (max 6 words)",
-    "SLIDE 7: The biggest takeaway (max 8 words)",
-    "SLIDE 8: Follow for more AI insights"
+    "Scroll-stopping hook — the most surprising fact from the article (max 8 words)",
+    "Specific subtopic from article (max 6 words)",
+    "Specific subtopic from article (max 6 words)",
+    "Specific subtopic from article (max 6 words)",
+    "Specific subtopic from article (max 6 words)",
+    "Specific subtopic from article (max 6 words)",
+    "The biggest takeaway or action (max 8 words)",
+    "Follow for more AI insights"
   ],
   "slide_emojis": ["🔥", "🤖", "⚡", "🛠️", "📈", "💡", "🎯", "🚀"],
   "slide_points": [
-    ["Specific point from video — max 12 words", "Specific point from video — max 12 words", "Specific point from video — max 12 words"],
+    ["Specific fact from article — max 12 words", "Specific fact from article — max 12 words", "Specific fact from article — max 12 words"],
     ["Specific point — max 12 words", "Specific point — max 12 words", "Specific point — max 12 words"],
     ["Specific point — max 12 words", "Specific point — max 12 words", "Specific point — max 12 words"],
     ["Specific point — max 12 words", "Specific point — max 12 words", "Specific point — max 12 words"],
     ["Specific point — max 12 words", "Specific point — max 12 words", "Specific point — max 12 words"],
     ["Specific point — max 12 words", "Specific point — max 12 words", "Specific point — max 12 words"],
-    ["Biggest lesson from the video — max 12 words", "Second key takeaway — max 12 words", "What to do next — max 12 words"],
-    ["Daily AI tips on @VipinAIHub", "Follow to stay ahead of AI curve", "Save this post — share with your team"]
+    ["Biggest lesson from this news — max 12 words", "What this means for you — max 12 words", "What to do right now — max 12 words"],
+    ["Daily AI/Cloud insights on @VipinAIHub", "Follow to stay ahead of AI curve", "Save this — share with your team"]
   ],
-  "caption": "Instagram caption — start with a hook line, then 3 key insights from the video as numbered points, end with a question to drive comments, then hashtags. Tag @VipinAIHub. Include: #AITools #ArtificialIntelligence #IndiaAI #AIForBusiness #VipinAIHub"
+  "caption": "Instagram caption — start with the hook line from slide 1, then 3 key facts as numbered points, end with a question to drive comments, then hashtags. Tag @VipinAIHub. Include: #AINews #CloudComputing #ArtificialIntelligence #AITools #VipinAIHub #MachineLearning"
 }}
 
-REMEMBER: Pull REAL content from the transcript. If the video mentions a specific tool, number, person, or outcome — USE IT. Do not invent or generalize."""
+REMEMBER: Pull REAL content from the article. If it mentions a specific tool, number, company, or benchmark — USE IT. Do not invent or generalize."""
 
 
-def get_content(transcript: str, video_title: str = "") -> dict:
+def get_content(article_text: str, topic_title: str = "") -> dict:
     if not config.GROQ_API_KEY:
-        raise RuntimeError("GROQ_API_KEY is not set. Get a free key at https://console.groq.com")
+        raise RuntimeError(
+            "GROQ_API_KEY is not set. Get a free key at https://console.groq.com"
+        )
 
     client = Groq(api_key=config.GROQ_API_KEY)
 
-    # Groq free tier limit is 12K tokens/min. Prompt template uses ~4K tokens,
-    # leaving ~7K for transcript (~5,500 chars) + ~500 buffer.
+    # Groq free tier: ~12K TPM. Prompt template ≈ 4K tokens,
+    # leaving ~7K for article (~5,500 chars).
     max_chars = 5_500
-    truncated = transcript[:max_chars]
-    if len(transcript) > max_chars:
-        logger.info("Transcript truncated from %d to %d chars.", len(transcript), max_chars)
+    truncated = article_text[:max_chars]
+    if len(article_text) > max_chars:
+        logger.info(
+            "Article truncated from %d to %d chars.", len(article_text), max_chars
+        )
 
     prompt = _USER_TEMPLATE.format(
-        title=video_title or "Unknown",
-        transcript=truncated,
+        title=topic_title or "Trending AI/Cloud news",
+        article=truncated,
     )
 
     try:
@@ -107,11 +116,11 @@ def get_content(transcript: str, video_title: str = "") -> dict:
                 {"role": "user", "content": prompt},
             ],
             max_tokens=8_192,
-            temperature=0.3,  # Lower = more faithful to transcript, less hallucination
+            temperature=0.3,
             response_format={"type": "json_object"},
         )
         raw = response.choices[0].message.content.strip()
-        logger.debug("Groq raw response: %s", raw[:300])
+        logger.debug("Groq raw response (first 300 chars): %s", raw[:300])
     except Exception as exc:
         raise RuntimeError(f"Groq API error: {exc}") from exc
 
@@ -122,7 +131,7 @@ def get_content(transcript: str, video_title: str = "") -> dict:
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"Groq returned non-JSON response: {raw[:200]}") from exc
 
-    # Validate and pad all lists
+    # Validate and pad all required lists
     for key, expected in (("slide_titles", 8), ("slide_emojis", 8), ("bullets", 6)):
         lst = data.get(key, [])
         while len(lst) < expected:
@@ -139,5 +148,7 @@ def get_content(transcript: str, video_title: str = "") -> dict:
             pts[i].append("")
     data["slide_points"] = pts[:8]
 
-    logger.info("Groq content generated — summary: %d chars", len(data.get("summary", "")))
+    logger.info(
+        "Groq content generated — summary: %d chars", len(data.get("summary", ""))
+    )
     return data
