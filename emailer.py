@@ -12,7 +12,6 @@ Attachs : slide_1.png … slide_8.png  (in order)
 """
 
 import logging
-import mimetypes
 import os
 import smtplib
 from email.mime.base import MIMEBase
@@ -49,7 +48,7 @@ def send_carousel_email(
         return False
 
     subject = f"🎠 New Carousel Ready — {video_title}"
-    body = _build_body(video_title, content)
+    body = _build_body(video_title, content, slide_count=len(png_paths))
 
     msg = MIMEMultipart()
     msg["From"]    = config.GMAIL_USER
@@ -84,7 +83,7 @@ def send_carousel_email(
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
-def _build_body(video_title: str, content: dict) -> str:
+def _build_body(video_title: str, content: dict, slide_count: int = 0) -> str:
     summary = content.get("summary", "")
     bullets = content.get("bullets", [])
     caption = content.get("caption", "")
@@ -100,24 +99,27 @@ def _build_body(video_title: str, content: dict) -> str:
         f"{'=' * 60}\n"
         f"INSTAGRAM CAPTION (copy-ready)\n{'=' * 60}\n{caption}\n\n"
         f"{'=' * 60}\n"
-        f"Slides attached: {len([p for p in _slide_sort_key.__doc__ or [] if p])} PNGs\n"
+        f"Slides attached: {slide_count} PNGs\n"
         f"Brand: {config.BRAND_HANDLE} | {config.BRAND_X}\n"
     )
 
 
 def _attach_png(msg: MIMEMultipart, png_path: str) -> None:
-    """Attach a single PNG file to the email message."""
+    """Attach a single PNG file to the email message.
+
+    We intentionally use application/octet-stream (not image/png) so that
+    Gmail presents each slide as a downloadable file rather than embedding
+    it as an inline preview inside the message body.
+    """
     filename = os.path.basename(png_path)
-    mime_type, _ = mimetypes.guess_type(png_path)
-    if mime_type is None:
-        mime_type = "application/octet-stream"
-    main_type, sub_type = mime_type.split("/", 1)
 
     with open(png_path, "rb") as fh:
-        part = MIMEBase(main_type, sub_type)
+        part = MIMEBase("application", "octet-stream")
         part.set_payload(fh.read())
 
     encoders.encode_base64(part)
+    # name= in Content-Type + filename= in Content-Disposition → max compatibility
+    part.set_param("name", filename)
     part.add_header("Content-Disposition", "attachment", filename=filename)
     msg.attach(part)
 
