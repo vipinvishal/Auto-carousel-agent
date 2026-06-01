@@ -6,7 +6,7 @@
 
 ## What It Does
 
-Every day at **5:00 AM UTC (10:30 AM IST)**, a GitHub Actions job wakes up and:
+**Twice every day** — at **10:00 AM IST** and **5:00 PM IST** — a GitHub Actions job wakes up and:
 
 1. **Scans** Hacker News + Reddit for the top AI/Cloud story from the last 48 hours
 2. **Scrapes** the full article text from the story URL
@@ -159,7 +159,7 @@ The workflow is already configured in `.github/workflows/carousel.yml`.
    - `GROQ_API_KEY`
    - `GMAIL_APP_PASSWORD`
 
-The job runs **every day at 5:00 AM UTC** and also has a manual trigger button in the Actions tab.
+The job runs **twice daily** — 10:00 AM IST (`4:30 AM UTC`) and 5:00 PM IST (`11:30 AM UTC`) — and also has a manual trigger button in the Actions tab.
 
 After each run, `last_story.txt` is automatically committed back to the repo so the next run skips already-processed stories.
 
