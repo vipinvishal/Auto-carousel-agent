@@ -2,8 +2,8 @@ name: VipinAIHub Carousel Agent
 
 on:
   schedule:
-    # Runs every day at 5:00 AM UTC (10:30 AM IST)
-    - cron: '0 5 * * *'
+    - cron: '30 4 * * *'   # 10:00 AM IST
+    - cron: '30 11 * * *'  # 5:00 PM IST
   workflow_dispatch:
     # Allow manual trigger from GitHub Actions tab anytime
 
