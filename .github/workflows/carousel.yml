@@ -1,11 +1,13 @@
 name: VipinAIHub Carousel Agent
 
 on:
-  schedule:
-    - cron: '30 4 * * *'   # 10:00 AM IST
-    - cron: '30 11 * * *'  # 5:00 PM IST
+  # Automatic schedule PAUSED by request — no automatic runs until re-enabled.
+  # To resume twice-daily runs, uncomment the two cron lines below.
+  # schedule:
+  #   - cron: '30 4 * * *'   # 10:00 AM IST
+  #   - cron: '30 11 * * *'  # 5:00 PM IST
   workflow_dispatch:
-    # Allow manual trigger from GitHub Actions tab anytime
+    # Manual-only for now: trigger from the GitHub Actions tab when you want a run.
 
 jobs:
   check-and-generate:
