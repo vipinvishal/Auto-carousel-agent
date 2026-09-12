@@ -93,6 +93,7 @@ def _normalize_post(lines: object, fallback: list[str]) -> list[str]:
 
 def _fallback(topic_key: str, candidate: dict | None) -> dict:
     topic = copy.deepcopy(FALLBACK_TOPICS.get(topic_key, FALLBACK_TOPICS["rag"]))
+    topic["topic_key"] = topic_key
     topic["post_lines"] = topic.pop("post")
     topic["cta"] = CTA_BY_TOPIC.get(topic_key, CTA_BY_TOPIC["rag"])
     if candidate:
@@ -150,6 +151,11 @@ def generate_content(candidate: dict | None, topic_key: str, force_fallback: boo
         data["source"] = f"Source: {candidate['source']} — {candidate['url']}"
         data["research_title"] = candidate["title"]
         data["generation_mode"] = "groq-validated"
+        data["topic_key"] = topic_key
+        data["highlights"] = [
+            str(slide.get("highlight") or fallback["highlights"][index])
+            for index, slide in enumerate(data["slides"])
+        ]
         data["cta"] = CTA_BY_TOPIC.get(topic_key, CTA_BY_TOPIC["rag"])
         data["slides"] = [
             (str(slide.get("series") or data["series"])[:32], str(slide["title"]).strip(), str(slide["body"]).strip())

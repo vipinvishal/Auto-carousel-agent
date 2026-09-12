@@ -21,6 +21,17 @@ on:
         required: false
         default: false
         type: boolean
+      topic:
+        description: 'Optional topic override for a manual preview'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - 'auto'
+          - 'rag'
+          - 'prompting'
+          - 'agents'
+          - 'llm'
 
 permissions:
   contents: read
@@ -53,6 +64,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "slot=${{ inputs.slot }}" >> "$GITHUB_OUTPUT"
             echo "fallback=${{ inputs.test_fallback }}" >> "$GITHUB_OUTPUT"
+            echo "topic=${{ inputs.topic }}" >> "$GITHUB_OUTPUT"
           else
             case "${{ github.event.schedule }}" in
               "30 3 * * *") slot="0900" ;;
@@ -62,6 +74,7 @@ jobs:
             esac
             echo "slot=$slot" >> "$GITHUB_OUTPUT"
             echo "fallback=false" >> "$GITHUB_OUTPUT"
+            echo "topic=auto" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Generate, validate, and email package
@@ -69,12 +82,17 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           CAROUSEL_SLOT: ${{ steps.slot.outputs.slot }}
+          CAROUSEL_TOPIC: ${{ steps.slot.outputs.topic }}
         shell: bash
         run: |
+          TOPIC_ARGS=()
+          if [ "$CAROUSEL_TOPIC" != "auto" ]; then
+            TOPIC_ARGS+=(--topic "$CAROUSEL_TOPIC")
+          fi
           if [ "${{ steps.slot.outputs.fallback }}" = "true" ]; then
-            python src/automation.py --slot "$CAROUSEL_SLOT" --send --force-fallback
+            python src/automation.py --slot "$CAROUSEL_SLOT" --send --force-fallback "${TOPIC_ARGS[@]}"
           else
-            python src/automation.py --slot "$CAROUSEL_SLOT" --send
+            python src/automation.py --slot "$CAROUSEL_SLOT" --send "${TOPIC_ARGS[@]}"
           fi
 
       - name: Upload failed-run package for diagnosis

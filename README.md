@@ -67,9 +67,10 @@ python -m unittest discover -s tests
 ## GitHub test email
 
 Use the Actions tab and run **vipinislearning approved AI Threads carousel**
-manually. Choose a slot and enable `test_fallback` for a deterministic test
-that does not call the content API. The workflow still renders, validates, and
-sends the real five-slide email.
+manually. Choose a slot, set `topic` to `llm` to preview the approved LLM
+comparison template, and enable `test_fallback` for a deterministic test that
+does not call the content API. The workflow still renders, validates, and sends
+the real five-slide email.
 
 ## Editorial promise
 

@@ -4,7 +4,7 @@
   "language": "English",
   "timezone": "Asia/Kolkata",
   "canvas": {"width": 1080, "height": 1350},
-  "template": "approved-reference-carousel-v1",
+  "template": "approved-reference-carousel-v2",
   "reference_carousel": "assets/approved/reference-carousel/slide-01.png ... slide-05.png",
   "mascot_asset": "assets/approved/blue-bird-mascot.png"
 }
