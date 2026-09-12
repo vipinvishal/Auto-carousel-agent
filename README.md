@@ -1,82 +1,153 @@
-# vipinislearning — automatic AI Threads carousel
+<div align="center">
 
-This repository sends a ready-to-post technical AI package to
-`vipinislearning@gmail.com` automatically. It creates a three-line Threads
-post plus exactly five portrait PNG slides in the approved hand-drawn style:
-cream paper, black marker typography, yellow/pink brush highlights, simple
-technical diagrams, and the blue bird mascot.
+# vipinislearning AI Carousel Automator
 
-The job runs in GitHub Actions, so it does not depend on a Mac being powered
-on and it never pauses for per-post approval.
+### Technical AI explained simply — delivered to your inbox automatically.
+
+[![Scheduled workflow](https://github.com/vipinvishal/Auto-carousel-agent/actions/workflows/carousel.yml/badge.svg)](https://github.com/vipinvishal/Auto-carousel-agent/actions/workflows/carousel.yml)
+[![Five PNG slides](https://img.shields.io/badge/carousel-5%20PNG%20slides-ff8aa5)](assets/approved/reference-carousel/slide-01.png)
+[![English only](https://img.shields.io/badge/language-English-6fbceb)](config/brand.json)
+
+</div>
+
+<p align="center">
+  <img src="assets/approved/reference-carousel/slide-01.png" alt="Approved AI carousel style" width="430">
+</p>
+
+<p align="center"><em>The approved visual direction: bold hook, simple diagram, useful takeaway, blue bird, and a clear CTA.</em></p>
+
+## What this project does
+
+This project creates a complete Threads post for `vipinislearning` and emails
+it to:
+
+> `vipinislearning@gmail.com`
+
+You do not need to keep your computer switched on. GitHub Actions runs the
+automation in the cloud.
 
 ## Delivery schedule
 
-All times are India Standard Time (`Asia/Kolkata`):
+| India time | What happens |
+|---|---|
+| 9:00 AM IST | Morning AI carousel |
+| 12:00 PM IST | Noon AI carousel |
+| 5:00 PM IST | Evening AI carousel |
 
-- 09:00 IST
-- 12:00 IST (noon)
-- 17:00 IST
+GitHub uses UTC internally, so the workflow uses `03:30`, `06:30`, and `11:30`
+UTC for these three India-time deliveries.
 
-GitHub Actions cron uses UTC, so the workflow stores these as `03:30`, `06:30`,
-and `11:30` UTC. Scheduled runs can be delayed by GitHub during periods of
-high load. They run from the repository's default branch.
+> GitHub may occasionally start a scheduled job a little late during heavy
+> platform load.
 
-## What each email contains
+## How one email is made
 
-- `post.txt`: exactly three synchronized Threads lines; the third line includes
-  hashtags.
-- `slide-01.png` through `slide-05.png`: 1080×1350 PNGs in posting order.
-- `package.json`: date, slot, topic, source URL, generation mode, and validation
-  metadata.
-- `email.html`: a readable summary of the post and source.
+```mermaid
+flowchart LR
+    A[Find a useful technical AI topic] --> B[Explain it in plain English]
+    B --> C[Create 5 synchronized PNG slides]
+    C --> D[Validate text, size, and order]
+    D --> E[Email the package]
+```
 
-The content engine first researches recent technical AI discussion from public
-Hacker News and Reddit feeds, prefers source-specific and official-provider
-material, and then asks Groq for a strict five-slide JSON package. The package
-is rejected back to the approved evergreen lesson if the response is malformed,
-the evidence is missing, or the API is unavailable. Current LLM/provider claims
-are written as dated task-fit comparisons rather than permanent winner claims.
+The post and the carousel are created together. The hook, explanation, and
+takeaway are never generated as separate stories.
 
-## Secrets
+## What arrives in the email
 
-The repository needs these GitHub Actions secrets (already configured for this
-repository):
+Every email contains:
 
-- `GMAIL_APP_PASSWORD`: Gmail app password for `vipinislearning@gmail.com`.
-- `GROQ_API_KEY`: content-generation key. Without it, the approved fallback
-  lesson is used and email delivery still works.
+- `post.txt` — exactly three short Threads lines.
+- `slide-01.png` to `slide-05.png` — five portrait PNGs in posting order.
+- Hashtags on the third post line.
+- A source note and package metadata.
 
-## Local test
+The slides use the approved visual language:
+
+- Cream paper background.
+- Thick black handwritten-style type.
+- Yellow hook highlights.
+- Purple, mint, blue, orange, and pink cards.
+- Simple technical diagrams and icons.
+- Blue bird mascot.
+- Pink takeaway banner and black CTA panel.
+
+## Topics we publish
+
+The content stays technical and beginner-friendly. Examples include:
+
+- LLM behavior and model comparisons.
+- New model or provider releases.
+- RAG, embeddings, chunking, and retrieval.
+- Prompting mechanics and output control.
+- AI agents, tools, orchestration, and guardrails.
+- Evaluation, latency, cost, privacy, and deployment.
+
+For model releases, the content focuses on task fit and trade-offs—not a
+permanent “best model” claim. Current claims are tied to research sources and
+dated comparisons.
+
+## Image behavior: exact reference vs new topics
+
+The approved LLM reference carousel is stored in
+`assets/approved/reference-carousel/` and is used unchanged for the exact
+template test.
+
+For new researched topics, the renderer creates fresh slides using the same
+approved design system. This keeps the wording, diagrams, and email text
+synchronized instead of reusing an old topic’s artwork.
+
+## Run a safe local test
 
 From the repository root:
 
 ```bash
-python -m pip install -r requirements.txt
-python src/automation.py --date 2099-01-01 --slot 0900 --topic rag --force-fallback
+python3 -m pip install -r requirements.txt
+python3 -m unittest discover -s tests
+python3 src/automation.py --date 2099-01-01 --slot 0900 --topic llm --force-fallback
 ```
 
-The output is written below `out/` and is ignored by Git. To send a local test,
-set `GMAIL_APP_PASSWORD` in the environment and add `--send`.
+The generated package is written to `out/`. It contains the five PNGs, the
+three-line post, and metadata. The `out/` directory is ignored by Git.
 
-Run the test suite with:
+## Send a real test email
 
-```bash
-python -m unittest discover -s tests
+Open the **Actions** tab and run **vipinislearning approved AI Threads
+carousel** manually with:
+
+1. Any delivery slot.
+2. `topic = llm`.
+3. `test_fallback = true`.
+
+This sends the exact approved five-slide reference carousel to the configured
+Gmail address without waiting for live research or the content API.
+
+## Required GitHub secrets
+
+These secrets are configured in the repository and are never committed:
+
+| Secret | Used for |
+|---|---|
+| `GMAIL_APP_PASSWORD` | Sends the email through Gmail SMTP |
+| `GROQ_API_KEY` | Generates researched technical-AI copy |
+
+If the content API is unavailable, the approved evergreen fallback keeps the
+email pipeline working.
+
+## Repository map
+
+```text
+src/automation.py       Build, validate, and send one package
+src/research.py         Find and rank recent technical AI topics
+src/content_engine.py   Create synchronized three-line copy and slide copy
+src/renderer.py          Render the approved five-slide visual system
+src/emailer.py           Attach PNGs and send the Gmail message
+assets/approved/         Mascot and approved reference carousel
+config/                  Brand, editorial, and LLM comparison rules
+tests/                   Renderer, schedule, asset, and validation checks
 ```
 
-## GitHub test email
+## Design promise
 
-Use the Actions tab and run **vipinislearning approved AI Threads carousel**
-manually. Choose a slot, set `topic` to `llm` to preview the approved LLM
-comparison template, and enable `test_fallback` for a deterministic test that
-does not call the content API. For this exact approved LLM test, the five
-versioned reference PNGs are attached unchanged; other topics use the same
-approved visual system with newly rendered synchronized content. The workflow
-still validates and sends the real five-slide email.
-
-## Editorial promise
-
-Every post is English-only and technical-AI-only: LLM behavior, prompting,
-RAG, embeddings, retrieval, agents, evaluation, latency, cost, privacy, or
-deployment. It is designed to be simple enough to understand quickly and
-useful enough to save or share.
+Every delivery should make one technical AI idea easier to understand in under
+a minute—and useful enough to save, share, or discuss.
