@@ -46,7 +46,14 @@ _OFFICIAL_DOMAINS = (
 
 def _is_technical_ai(title: str) -> bool:
     lowered = title.lower()
-    return bool(_WHOLE_WORD_TERMS.search(title)) or any(term in lowered for term in _DISTINCTIVE_TERMS)
+    if any(term in lowered for term in _DISTINCTIVE_TERMS):
+        return True
+    # A bare mention of "AI" creates false positives such as general news
+    # headlines saying something is "without AI". Require a second technical
+    # signal or an explicit AI-system phrase before selecting the story.
+    whole_word_hits = _WHOLE_WORD_TERMS.findall(title)
+    explicit_phrases = ("ai model", "ai tool", "ai agent", "ai system", "generative ai", "ai research")
+    return len(whole_word_hits) >= 2 or any(phrase in lowered for phrase in explicit_phrases)
 
 
 def _get_json(url: str, timeout: int = 12) -> object | None:

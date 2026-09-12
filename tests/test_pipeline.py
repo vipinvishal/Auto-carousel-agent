@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import automation  # noqa: E402
 import content_engine  # noqa: E402
+import research  # noqa: E402
 from renderer import (  # noqa: E402
     APPROVED_REFERENCE_DIR,
     FONT_BODY,
@@ -28,6 +29,10 @@ from renderer import (  # noqa: E402
 class PipelineTests(unittest.TestCase):
     def test_schedule_is_three_ist_slots(self):
         self.assertEqual(automation.SLOTS, ("0900", "1200", "1700"))
+
+    def test_research_rejects_bare_ai_mentions(self):
+        self.assertFalse(research._is_technical_ai("Show HN: Hacker News, without AI"))
+        self.assertTrue(research._is_technical_ai("New AI model adds structured tool calling"))
 
     def test_approved_fallback_builds_five_synchronized_pngs(self):
         folder, package, slides = automation.build_package(
