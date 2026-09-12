@@ -1,17 +1,9 @@
-# ── Groq API (free tier — get key at console.groq.com) ─────────────────────
-groq>=0.9.0
+groq>=0.9.0,<1.0
 
-# ── Playwright (PNG export) ─────────────────────────────────────────────────
-playwright>=1.45.0
+Pillow>=10.3.0,<12
 
-# ── Image processing ────────────────────────────────────────────────────────
-Pillow>=10.3.0
+requests>=2.32.0,<3
 
-# ── HTTP client ─────────────────────────────────────────────────────────────
-requests>=2.32.0
+beautifulsoup4>=4.12.0,<5
 
-# ── Article scraping ────────────────────────────────────────────────────────
-beautifulsoup4>=4.12.0
-
-# ── Local dev: load secrets from .env file ───────────────────────────────────
-python-dotenv>=1.0.0
+python-dotenv>=1.0.0,<2

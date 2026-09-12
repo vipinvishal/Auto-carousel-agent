@@ -1,0 +1,44 @@
+{
+  "max_post_lines": 3,
+  "max_slides": 5,
+  "required_slide_count": 5,
+  "require_source_note": true,
+  "require_manual_review": false,
+  "automatic_send": true,
+  "style": "friendly, simple, visual, precise, English only",
+  "technical_only": true,
+  "technical_scope": [
+    "machine learning concepts",
+    "LLM and model behavior",
+    "prompting mechanics",
+    "RAG, embeddings, chunking, retrieval, and vector search",
+    "AI agents, tools, orchestration, and guardrails",
+    "evaluation, observability, latency, cost, privacy, and deployment"
+  ],
+  "exclusions": [
+    "generic productivity motivation",
+    "non-technical business advice",
+    "generic creator or marketing tips",
+    "unexplained product promotion",
+    "breaking news without a technical explanation"
+  ],
+  "model_release_workflow": {
+    "trigger": "new LLM or provider release, major capability update, pricing change, or deprecation",
+    "required_comparison_fields": [
+      "model and provider",
+      "release date and information date",
+      "reasoning or coding strength",
+      "context window and modalities",
+      "tool use or structured output",
+      "latency and price",
+      "privacy or data-retention notes",
+      "known limitations and task fit"
+    ],
+    "method": "Use the same prompts and task set across models, cite official provider documentation, separate measured results from provider claims, and label the comparison date."
+  },
+  "safety": [
+    "Do not invent current facts or product capabilities.",
+    "Cite current claims in the final slide and package metadata.",
+    "Flag health, legal, financial, employment, safety, and security claims for human review."
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "purpose": "Track technical LLM and provider changes before creating a dated Threads comparison.",
+  "check_before_publishing": true,
+  "official_sources": [
+    {
+      "provider": "OpenAI",
+      "models": "https://platform.openai.com/docs/models",
+      "pricing": "https://openai.com/api/pricing/"
+    },
+    {
+      "provider": "Anthropic",
+      "models": "https://docs.anthropic.com/en/docs/about-claude/models",
+      "deprecations": "https://docs.anthropic.com/en/docs/about-claude/model-deprecations"
+    },
+    {
+      "provider": "Google",
+      "models": "https://ai.google.dev/gemini-api/docs/models",
+      "pricing": "https://ai.google.dev/gemini-api/docs/pricing"
+    },
+    {
+      "provider": "xAI",
+      "models": "https://docs.x.ai/docs/models",
+      "pricing": "https://docs.x.ai/docs/models"
+    }
+  ],
+  "comparison_fields": [
+    "model and provider",
+    "release date and information date",
+    "reasoning, coding, or multimodal strengths",
+    "context window",
+    "tool calling and structured output",
+    "latency and price",
+    "privacy and data-retention notes",
+    "known limitations and best-fit tasks"
+  ],
+  "testing_rule": "Use the same prompt set, settings where comparable, and task examples across models. Separate measured results from provider claims.",
+  "publishing_rule": "Never publish a permanent best-model claim. Date every comparison and re-check official documentation after a release, pricing change, or deprecation."
+}

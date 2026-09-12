@@ -11,6 +11,7 @@ env/
 
 # Output (generated PNGs and HTML)
 output/
+out/
 
 # macOS
 .DS_Store
