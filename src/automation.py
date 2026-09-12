@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import shutil
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -59,9 +60,16 @@ def build_package(day: date, slot: str, topic_key: str | None = None, force_fall
     folder.mkdir(parents=True, exist_ok=True)
 
     slides: list[Path] = []
+    render_mode = "pillow-approved-template"
     for slide_no in range(1, 6):
         path = folder / f"slide-{slide_no:02d}.png"
-        render_slide(slide_no, 5, topic, path)
+        # The approved LLM carousel is kept as a golden raster reference. A
+        # manual fallback test should email those exact files, not a redraw.
+        if force_fallback and selected_key == "llm":
+            shutil.copyfile(APPROVED_REFERENCE_DIR / f"slide-{slide_no:02d}.png", path)
+            render_mode = "exact-approved-reference"
+        else:
+            render_slide(slide_no, 5, topic, path)
         slides.append(path)
 
     source = topic.get("source") or (candidate and f"Source: {candidate['source']} — {candidate['url']}") or "Source: approved evergreen technical lesson"
@@ -75,6 +83,7 @@ def build_package(day: date, slot: str, topic_key: str | None = None, force_fall
         "language": "English",
         "recipient_email": "vipinislearning@gmail.com",
         "visual_template": VISUAL_TEMPLATE,
+        "render_mode": render_mode,
         "visual_dimensions": f"{W}x{H}",
         "post_lines": topic["post_lines"],
         "source": source,
@@ -99,11 +108,12 @@ def validate(folder: Path, package: dict, slides: list[Path]) -> list[str]:
         errors.append("third post line must include hashtags")
     if len(slides) != 5:
         errors.append("package must contain exactly five PNG slides")
+    expected_size = (1122, 1402) if package.get("render_mode") == "exact-approved-reference" else (W, H)
     for path in slides:
         try:
             with Image.open(path) as image:
-                if image.size != (W, H):
-                    errors.append(f"wrong dimensions for {path.name}: {image.size}")
+                if image.size != expected_size:
+                    errors.append(f"wrong dimensions for {path.name}: {image.size}; expected {expected_size}")
                 if image.format != "PNG":
                     errors.append(f"not a PNG: {path.name}")
         except Exception as exc:

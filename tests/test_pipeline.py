@@ -58,6 +58,17 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("#", topic["post_lines"][2])
         self.assertTrue(topic["cta"])
 
+    def test_llm_fallback_uses_exact_approved_reference_pngs(self):
+        folder, package, slides = automation.build_package(
+            date(2099, 1, 2), "1200", "llm", force_fallback=True
+        )
+        self.assertEqual(automation.validate(folder, package, slides), [])
+        self.assertEqual(package["render_mode"], "exact-approved-reference")
+        with Image.open(slides[0]) as image:
+            with Image.open(APPROVED_REFERENCE_DIR / "slide-01.png") as reference:
+                self.assertEqual(image.size, reference.size)
+                self.assertEqual(image.tobytes(), reference.tobytes())
+
     def test_approved_assets_and_bundled_fonts_exist(self):
         for font_path in (FONT_HAND, FONT_HAND_BOLD, FONT_BODY, FONT_BODY_BOLD):
             self.assertTrue(Path(font_path).exists(), font_path)

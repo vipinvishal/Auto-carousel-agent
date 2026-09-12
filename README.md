@@ -69,8 +69,10 @@ python -m unittest discover -s tests
 Use the Actions tab and run **vipinislearning approved AI Threads carousel**
 manually. Choose a slot, set `topic` to `llm` to preview the approved LLM
 comparison template, and enable `test_fallback` for a deterministic test that
-does not call the content API. The workflow still renders, validates, and sends
-the real five-slide email.
+does not call the content API. For this exact approved LLM test, the five
+versioned reference PNGs are attached unchanged; other topics use the same
+approved visual system with newly rendered synchronized content. The workflow
+still validates and sends the real five-slide email.
 
 ## Editorial promise
 

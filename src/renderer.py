@@ -24,7 +24,7 @@ FONT_BODY = str(FONT_DIR / "NunitoSans-Regular.ttf")
 FONT_BODY_BOLD = str(FONT_DIR / "NunitoSans-Bold.ttf")
 MASCOT_PATH = ROOT / "assets/approved/blue-bird-mascot.png"
 APPROVED_REFERENCE_DIR = ROOT / "assets/approved/reference-carousel"
-VISUAL_TEMPLATE = "approved-reference-carousel-v2"
+VISUAL_TEMPLATE = "approved-reference-carousel-v3"
 
 COLORS = {
     "paper": "#FAF8F3",
