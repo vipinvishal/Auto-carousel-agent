@@ -123,7 +123,7 @@ def build_package(
         # Production path: the reference images are supplied directly to the
         # image model. Any failure aborts before Gmail delivery.
         slides = generate_carousel(topic, folder)
-        render_mode = "openai-reference-conditioned"
+        render_mode = "gemini-reference-conditioned"
 
     source = topic.get("source") or (candidate and f"Source: {candidate['source']} — {candidate['url']}") or "Source: approved evergreen technical lesson"
     package = {

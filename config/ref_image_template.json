@@ -1,6 +1,6 @@
 {
   "name": "ref-image-handwritten-v3-image-model",
-  "render_engine": "OpenAI Images API with direct reference-image inputs",
+  "render_engine": "Gemini Images API with direct reference-image inputs",
   "source_of_truth": "assets/approved/reference-style/",
   "canvas": [1122, 1402],
   "invariants": {

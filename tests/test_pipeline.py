@@ -122,7 +122,7 @@ class PipelineTests(unittest.TestCase):
         )
         generate_carousel.assert_called_once()
         self.assertEqual(slides, generated)
-        self.assertEqual(package["render_mode"], "openai-reference-conditioned")
+        self.assertEqual(package["render_mode"], "gemini-reference-conditioned")
 
     def test_fallback_is_compatible_with_renderer(self):
         topic = content_engine.generate_content(None, "llm", force_fallback=True)
@@ -139,14 +139,17 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("large expressive bird", prompt.lower())
         self.assertIn("Avoid: SaaS dashboard", prompt)
 
-    @patch.dict(os.environ, {"GROQ_API_KEY": "invalid", "OPENAI_API_KEY": "configured"})
-    @patch("openai.OpenAI")
-    @patch.object(content_engine, "Groq", side_effect=RuntimeError("invalid key"))
-    def test_openai_copy_fallback_replaces_invalid_groq(self, _groq, openai_client):
-        openai_client.return_value.responses.create.return_value.output_text = '{"ok": true}'
+    @patch.dict(os.environ, {"OPENROUTER_API_KEY": "configured"})
+    @patch.object(content_engine.requests, "post")
+    def test_openrouter_generates_validated_copy(self, post):
+        post.return_value.ok = True
+        post.return_value.json.return_value = {
+            "model": "openrouter/free",
+            "choices": [{"message": {"content": '{"ok": true}'}}],
+        }
         data, mode = content_engine._call_content_model("test")
         self.assertEqual(data, {"ok": True})
-        self.assertEqual(mode, "openai-validated")
+        self.assertEqual(mode, "openrouter-validated:openrouter/free")
 
     def test_viral_rulebook_is_loaded_by_content_engine(self):
         self.assertEqual(content_engine.RULEBOOK["story_arc"], ["curiosity", "tension", "insight", "payoff"])

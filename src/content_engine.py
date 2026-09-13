@@ -8,15 +8,15 @@ import logging
 import os
 import re
 
-from groq import Groq
+import requests
 
 from renderer import TOPICS as FALLBACK_TOPICS
 from renderer import VISUAL_LABELS as FALLBACK_VISUAL_LABELS
 
 logger = logging.getLogger(__name__)
 
-MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-OPENAI_TEXT_MODEL = os.getenv("OPENAI_TEXT_MODEL", "gpt-5-mini")
+MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 HASHTAGS = ("#AI", "#LLM", "#AIEngineering", "#MachineLearning")
 ICON_TYPES = {
     "answer", "brain", "chunks", "clock", "code", "coins", "context",
@@ -181,39 +181,40 @@ def _valid(data: object) -> bool:
 
 
 def _call_content_model(prompt: str) -> tuple[dict, str]:
-    failures: list[str] = []
-    groq_key = os.getenv("GROQ_API_KEY", "")
-    if groq_key:
-        try:
-            response = Groq(api_key=groq_key).chat.completions.create(
-                model=MODEL,
-                messages=[{"role": "system", "content": _SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
-                temperature=0.25,
-                max_tokens=3_000,
-                response_format={"type": "json_object"},
-            )
-            return json.loads(response.choices[0].message.content), "groq-validated"
-        except Exception as exc:
-            failures.append(f"Groq: {exc}")
+    api_key = os.getenv("OPENROUTER_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("OPENROUTER_API_KEY is required for live researched carousel copy")
 
-    if os.getenv("OPENAI_API_KEY"):
-        try:
-            from openai import OpenAI
-
-            response = OpenAI().responses.create(
-                model=OPENAI_TEXT_MODEL,
-                instructions=_SYSTEM_PROMPT,
-                input=prompt,
-                max_output_tokens=3_000,
-            )
-            raw = response.output_text.strip()
-            if raw.startswith("```"):
-                raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.IGNORECASE)
-            return json.loads(raw), "openai-validated"
-        except Exception as exc:
-            failures.append(f"OpenAI: {exc}")
-
-    raise RuntimeError("; ".join(failures) or "no content-model API key is configured")
+    response = requests.post(
+        OPENROUTER_URL,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/vipinvishal/Auto-carousel-agent",
+            "X-OpenRouter-Title": "vipinislearning AI Carousel Automator",
+        },
+        json={
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.25,
+            "max_tokens": 3_000,
+            "response_format": {"type": "json_object"},
+        },
+        timeout=90,
+    )
+    if not response.ok:
+        raise RuntimeError(f"OpenRouter returned {response.status_code}: {response.text[:500]}")
+    payload = response.json()
+    try:
+        raw = str(payload["choices"][0]["message"]["content"]).strip()
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError("OpenRouter returned no completion content") from exc
+    if raw.startswith("```"):
+        raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.IGNORECASE)
+    return json.loads(raw), f"openrouter-validated:{payload.get('model', MODEL)}"
 
 
 def generate_content(candidate: dict | None, topic_key: str, force_fallback: bool = False) -> dict:
@@ -271,5 +272,4 @@ def generate_content(candidate: dict | None, topic_key: str, force_fallback: boo
         ]
         return data
     except Exception as exc:
-        logger.warning("Dynamic content generation failed; using approved fallback: %s", exc)
-        return fallback
+        raise RuntimeError(f"Live content generation failed; stopping before Gmail delivery: {exc}") from exc

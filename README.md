@@ -69,8 +69,8 @@ The scheduled job follows this exact order:
 3. Gather the selected article or discussion context plus related evidence.
 4. Apply `config/viral_carousel_rules.json`, which encodes the approved local `viral-ai-carousel` skill: curiosity → tension → insight → payoff; one idea per slide; and a connected CTA.
 5. Curate the three-line Threads post and five-slide story together.
-6. Generate portrait PNGs with the OpenAI image model, supplying the approved
-   Ref Image files as direct visual inputs for every slide.
+6. Generate portrait PNGs with Gemini Image, supplying three approved Ref
+   Image files as direct visual inputs for every slide.
 7. Validate dimensions, file type, slide count, hashtags, source metadata, and synchronization before Gmail delivery.
 
 “Viral” is treated honestly as a public-signal proxy. The workflow cannot see
@@ -120,9 +120,9 @@ Scheduled emails use this library's visual rules, so fresh content cannot
 silently switch back to the old renderer style.
 
 Scheduled fresh topics use the `ref-image-handwritten-v3-image-model`
-pipeline. It sends the real reference PNGs directly to the image model for
-every slide; it no longer redraws the artwork with Pillow. Its five layout
-prompts are deliberately taken from the reference library:
+pipeline. Gemini Image receives three real reference PNGs for every slide; it
+does not redraw the artwork with Pillow. Its five layout prompts are
+deliberately taken from the reference library:
 
 1. Curiosity cover — oversized hook, one highlighted phrase, large mascot,
    compact doodle grid, and swipe cue.
@@ -171,9 +171,9 @@ carousel** manually with:
    and choose `topic=auto` to test live research, content generation, rendering,
    and Gmail delivery together.
 
-The workflow always emails the package to the configured Gmail address. If the
-content API is unavailable, the local evergreen fallback keeps the scheduled
-delivery working.
+The workflow emails only complete live packages to the configured Gmail
+address. If live copy or image generation fails, it stops instead of sending a
+generic or visually rejected fallback.
 
 ## Required GitHub secrets
 
@@ -182,12 +182,11 @@ These secrets must be configured in the repository and are never committed:
 | Secret | Used for |
 |---|---|
 | `GMAIL_APP_PASSWORD` | Sends the email through Gmail SMTP |
-| `GROQ_API_KEY` | Generates researched technical-AI copy |
-| `OPENAI_API_KEY` | Generates all five PNGs using the approved reference images |
+| `OPENROUTER_API_KEY` | Uses `openrouter/free` to curate live researched technical-AI copy |
+| `GEMINI_API_KEY` | Generates all five PNGs from three approved reference images per slide |
 
-If the text-content API is unavailable, the approved evergreen copy fallback
-keeps the editorial pipeline working. There is intentionally no low-quality
-image fallback: a missing or failed image-model call stops the email.
+There is intentionally no low-quality fallback: a missing or failed live-copy
+or image-model call stops the email.
 
 ## Repository map
 

@@ -1,27 +1,27 @@
-"""Reference-conditioned carousel rendering with the OpenAI Images API."""
+"""Reference-conditioned carousel rendering with the Gemini Images API."""
 
 from __future__ import annotations
 
 import base64
 import io
 import os
-from contextlib import ExitStack
 from pathlib import Path
 
+import requests
 from PIL import Image, ImageOps
 
 from renderer import OUTPUT_SIZE, REFERENCE_STYLE_DIR, topic_visuals
 
 
-MODEL = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-2.5-sunburst")
-QUALITY = os.getenv("OPENAI_IMAGE_QUALITY", "high")
+MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")
+GEMINI_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
 
 REFERENCE_MAP = {
-    1: ("01-cover.png", "02-how-to-build.png"),
-    2: ("02-how-to-build.png", "03-pdf-study-agent.png"),
-    3: ("03-pdf-study-agent.png", "05-personal-study-coach.png"),
-    4: ("04-smart-task-agent.png", "06-content-repurposing-agent.png"),
-    5: ("08-cta-comment-project.png", "01-cover.png"),
+    1: ("01-cover.png", "02-how-to-build.png", "03-pdf-study-agent.png"),
+    2: ("02-how-to-build.png", "03-pdf-study-agent.png", "05-personal-study-coach.png"),
+    3: ("03-pdf-study-agent.png", "05-personal-study-coach.png", "01-cover.png"),
+    4: ("04-smart-task-agent.png", "06-content-repurposing-agent.png", "02-how-to-build.png"),
+    5: ("08-cta-comment-project.png", "01-cover.png", "05-personal-study-coach.png"),
 }
 
 
@@ -88,35 +88,56 @@ def _save_result(encoded: str, destination: Path) -> None:
         final.save(destination, format="PNG", optimize=True)
 
 
+def _extract_image(payload: dict) -> str | None:
+    output = payload.get("output_image") or {}
+    if isinstance(output, dict) and output.get("data"):
+        return str(output["data"])
+    for step in payload.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        for block in step.get("content") or []:
+            if isinstance(block, dict) and block.get("type") == "image" and block.get("data"):
+                return str(block["data"])
+    return None
+
+
 def generate_slide(topic: dict, slide_no: int, destination: Path) -> None:
-    if not os.getenv("OPENAI_API_KEY"):
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    if not api_key:
         raise RuntimeError(
-            "OPENAI_API_KEY is required for approved Ref Image generation; "
+            "GEMINI_API_KEY is required for approved Ref Image generation; "
             "the rejected Pillow renderer will not be emailed as a fallback"
         )
-
-    from openai import OpenAI
 
     reference_paths = [REFERENCE_STYLE_DIR / name for name in REFERENCE_MAP[slide_no]]
     missing = [path for path in reference_paths if not path.exists()]
     if missing:
         raise FileNotFoundError(f"missing Ref Image input: {missing[0]}")
 
-    client = OpenAI()
-    with ExitStack() as stack:
-        references = [stack.enter_context(path.open("rb")) for path in reference_paths]
-        result = client.images.edit(
-            model=MODEL,
-            image=references,
-            prompt=build_prompt(topic, slide_no),
-            background="opaque",
-            output_format="png",
-            quality=QUALITY,
-            size="auto",
-        )
-    if not result.data or not result.data[0].b64_json:
-        raise RuntimeError(f"OpenAI image model returned no image for slide {slide_no}")
-    _save_result(result.data[0].b64_json, destination)
+    image_inputs = [
+        {
+            "type": "image",
+            "mime_type": "image/png",
+            "data": base64.b64encode(path.read_bytes()).decode("ascii"),
+        }
+        for path in reference_paths
+    ]
+    response = requests.post(
+        GEMINI_INTERACTIONS_URL,
+        headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+        json={
+            "model": MODEL,
+            "input": [{"type": "text", "text": build_prompt(topic, slide_no)}, *image_inputs],
+            "response_format": {"type": "image", "mime_type": "image/png", "aspect_ratio": "4:5"},
+        },
+        timeout=240,
+    )
+    if not response.ok:
+        raise RuntimeError(f"Gemini image API returned {response.status_code}: {response.text[:500]}")
+    encoded = _extract_image(response.json())
+    if not encoded:
+        raise RuntimeError(f"Gemini image model returned no image for slide {slide_no}")
+    _save_result(encoded, destination)
 
 
 def generate_carousel(topic: dict, out_dir: Path) -> list[Path]:
