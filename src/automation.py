@@ -17,6 +17,7 @@ from PIL import Image
 
 from content_engine import generate_content
 from emailer import send_package
+from image_engine import generate_carousel
 from renderer import (
     APPROVED_REFERENCE_DIR,
     MASCOT_PATH,
@@ -74,6 +75,7 @@ def build_package(
     topic_key: str | None = None,
     force_fallback: bool = False,
     reference_lock: bool = False,
+    allow_pillow_preview: bool = False,
 ):
     candidate = None if reference_lock else choose_candidate(day, slot)
     selected_key = "reference" if reference_lock else (topic_key or (candidate and candidate.get("topic_key")) or "rag")
@@ -92,26 +94,36 @@ def build_package(
     folder.mkdir(parents=True, exist_ok=True)
 
     slides: list[Path] = []
-    render_mode = "pillow-approved-template"
-    for slide_no in range(1, 6):
-        path = folder / f"slide-{slide_no:02d}.png"
+    if reference_lock:
         # Explicit reference-lock delivery copies the five owner-approved LLM
-        # PNGs unchanged. This is the only path that promises the exact
-        # hand-lettered raster artwork in the email.
-        if reference_lock:
+        # PNGs unchanged.
+        for slide_no in range(1, 6):
+            path = folder / f"slide-{slide_no:02d}.png"
             source_path = REFERENCE_SLIDES[slide_no - 1]
             if not source_path.exists():
                 raise FileNotFoundError(f"missing approved Ref Image asset: {source_path}")
             shutil.copyfile(source_path, path)
-            render_mode = "exact-ref-image-reference"
-        # The approved LLM carousel is kept as a golden raster reference. A
-        # manual fallback test should email those exact files, not a redraw.
-        elif force_fallback and selected_key == "llm":
+            slides.append(path)
+        render_mode = "exact-ref-image-reference"
+    elif force_fallback and selected_key == "llm":
+        # The approved LLM carousel is kept as a golden raster reference.
+        for slide_no in range(1, 6):
+            path = folder / f"slide-{slide_no:02d}.png"
             shutil.copyfile(APPROVED_REFERENCE_DIR / f"slide-{slide_no:02d}.png", path)
-            render_mode = "exact-approved-reference"
-        else:
+            slides.append(path)
+        render_mode = "exact-approved-reference"
+    elif allow_pillow_preview:
+        # Developer-only preview. GitHub Actions never enables this branch.
+        for slide_no in range(1, 6):
+            path = folder / f"slide-{slide_no:02d}.png"
             render_slide(slide_no, 5, topic, path)
-        slides.append(path)
+            slides.append(path)
+        render_mode = "pillow-local-preview-not-for-email"
+    else:
+        # Production path: the reference images are supplied directly to the
+        # image model. Any failure aborts before Gmail delivery.
+        slides = generate_carousel(topic, folder)
+        render_mode = "openai-reference-conditioned"
 
     source = topic.get("source") or (candidate and f"Source: {candidate['source']} — {candidate['url']}") or "Source: approved evergreen technical lesson"
     package = {
@@ -200,6 +212,7 @@ def main() -> int:
     parser.add_argument("--send", action="store_true")
     parser.add_argument("--force-fallback", action="store_true")
     parser.add_argument("--reference-lock", action="store_true")
+    parser.add_argument("--allow-pillow-preview", action="store_true")
     args = parser.parse_args()
 
     now = datetime.now(IST)
@@ -208,7 +221,14 @@ def main() -> int:
     if not slot:
         slot = automatic_slot(now)
 
-    folder, package, slides = build_package(day, slot, args.topic, args.force_fallback, args.reference_lock)
+    folder, package, slides = build_package(
+        day,
+        slot,
+        args.topic,
+        args.force_fallback,
+        args.reference_lock,
+        args.allow_pillow_preview,
+    )
     errors = validate(folder, package, slides)
     if errors:
         raise SystemExit("Validation failed: " + "; ".join(errors))

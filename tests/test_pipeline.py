@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import automation  # noqa: E402
 import content_engine  # noqa: E402
+import image_engine  # noqa: E402
 import research  # noqa: E402
 from renderer import (  # noqa: E402
     APPROVED_REFERENCE_DIR,
@@ -36,7 +37,7 @@ class PipelineTests(unittest.TestCase):
 
     def test_ref_image_template_is_the_only_dynamic_visual_contract(self):
         self.assertTrue(TEMPLATE_SPEC_PATH.exists())
-        self.assertEqual(VISUAL_TEMPLATE, "ref-image-handwritten-v2")
+        self.assertEqual(VISUAL_TEMPLATE, "ref-image-handwritten-v3-image-model")
         self.assertEqual(TEMPLATE_SPEC["name"], VISUAL_TEMPLATE)
         self.assertEqual(TEMPLATE_SPEC["source_of_truth"], "assets/approved/reference-style/")
         self.assertIn("slide 5 only", TEMPLATE_SPEC["invariants"]["cta"])
@@ -89,7 +90,11 @@ class PipelineTests(unittest.TestCase):
 
     def test_approved_fallback_builds_five_synchronized_pngs(self):
         folder, package, slides = automation.build_package(
-            date(2099, 1, 1), "0900", "rag", force_fallback=True
+            date(2099, 1, 1),
+            "0900",
+            "rag",
+            force_fallback=True,
+            allow_pillow_preview=True,
         )
         errors = automation.validate(folder, package, slides)
         self.assertEqual(errors, [])
@@ -107,12 +112,31 @@ class PipelineTests(unittest.TestCase):
         metadata = json.loads((folder / "package.json").read_text(encoding="utf-8"))
         self.assertEqual(metadata["slides"], [path.name for path in slides])
 
+    @patch.object(automation, "generate_carousel")
+    def test_production_uses_reference_conditioned_image_model(self, generate_carousel):
+        generated = [APPROVED_REFERENCE_DIR / f"slide-{index:02d}.png" for index in range(1, 6)]
+        generate_carousel.return_value = generated
+        _, package, slides = automation.build_package(
+            date(2099, 1, 4), "0900", "agents", force_fallback=True
+        )
+        generate_carousel.assert_called_once()
+        self.assertEqual(slides, generated)
+        self.assertEqual(package["render_mode"], "openai-reference-conditioned")
+
     def test_fallback_is_compatible_with_renderer(self):
         topic = content_engine.generate_content(None, "llm", force_fallback=True)
         self.assertEqual(len(topic["post_lines"]), 3)
         self.assertEqual(len(topic["slides"]), 5)
         self.assertIn("#", topic["post_lines"][2])
         self.assertTrue(topic["cta"])
+
+    def test_image_model_prompt_uses_exact_ref_image_language(self):
+        topic = content_engine.generate_content(None, "agents", force_fallback=True)
+        prompt = image_engine.build_prompt(topic, 1)
+        self.assertIn("matching the reference images extremely closely", prompt)
+        self.assertIn("Text (verbatim", prompt)
+        self.assertIn("large expressive bird", prompt.lower())
+        self.assertIn("Avoid: SaaS dashboard", prompt)
 
     def test_viral_rulebook_is_loaded_by_content_engine(self):
         self.assertEqual(content_engine.RULEBOOK["story_arc"], ["curiosity", "tension", "insight", "payoff"])

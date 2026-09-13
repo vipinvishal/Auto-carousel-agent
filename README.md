@@ -21,6 +21,12 @@ The permanent visual reference library is kept in
 copied, version-controlled backup of the owner's `Ref Image` directory, so
 future changes can be checked against the agreed hand-drawn look.
 
+<p align="center">
+  <img src="assets/previews/reference-conditioned-cover.png" alt="Reference-conditioned image-model output" width="360">
+</p>
+
+<p align="center"><em>Quality target produced by supplying the real Ref Image PNGs directly to the image model.</em></p>
+
 ## What this project does
 
 This project creates a complete Threads post for `vipinislearning` and emails
@@ -63,7 +69,8 @@ The scheduled job follows this exact order:
 3. Gather the selected article or discussion context plus related evidence.
 4. Apply `config/viral_carousel_rules.json`, which encodes the approved local `viral-ai-carousel` skill: curiosity → tension → insight → payoff; one idea per slide; and a connected CTA.
 5. Curate the three-line Threads post and five-slide story together.
-6. Generate portrait PNGs in the approved handwritten Ref Image visual system.
+6. Generate portrait PNGs with the OpenAI image model, supplying the approved
+   Ref Image files as direct visual inputs for every slide.
 7. Validate dimensions, file type, slide count, hashtags, source metadata, and synchronization before Gmail delivery.
 
 “Viral” is treated honestly as a public-signal proxy. The workflow cannot see
@@ -112,8 +119,10 @@ The eight-image Ref Image library is stored in
 Scheduled emails use this library's visual rules, so fresh content cannot
 silently switch back to the old renderer style.
 
-Scheduled fresh topics use the deterministic `ref-image-handwritten-v2`
-template. Its five layouts are deliberately taken from the reference library:
+Scheduled fresh topics use the `ref-image-handwritten-v3-image-model`
+pipeline. It sends the real reference PNGs directly to the image model for
+every slide; it no longer redraws the artwork with Pillow. Its five layout
+prompts are deliberately taken from the reference library:
 
 1. Curiosity cover — oversized hook, one highlighted phrase, large mascot,
    compact doodle grid, and swipe cue.
@@ -129,6 +138,11 @@ the retired sparse SaaS-card layout, tiny mascot, slide counter, dashboard
 header, and repeated black CTA. New words and doodles change with the researched
 topic; the visual grammar does not.
 
+The retired Pillow renderer is available only for an explicit local developer
+preview. Scheduled jobs never enable it. If reference-conditioned image
+generation is unavailable, the workflow stops before Gmail delivery instead of
+emailing a visually incorrect fallback.
+
 The exact raster references remain available through the manual
 `reference_lock=true` option. That mode copies the approved PNGs byte-for-byte
 and is useful as a golden visual test; it is not used for scheduled fresh
@@ -141,7 +155,7 @@ From the repository root:
 ```bash
 python3 -m pip install -r requirements.txt
 python3 -m unittest discover -s tests
-python3 src/automation.py --date 2099-01-01 --slot 0900 --topic llm --force-fallback
+python3 src/automation.py --date 2099-01-01 --slot 0900 --topic agents --force-fallback --allow-pillow-preview
 ```
 
 The generated package is written to `out/`. It contains the five PNGs, the
@@ -163,15 +177,17 @@ delivery working.
 
 ## Required GitHub secrets
 
-These secrets are configured in the repository and are never committed:
+These secrets must be configured in the repository and are never committed:
 
 | Secret | Used for |
 |---|---|
 | `GMAIL_APP_PASSWORD` | Sends the email through Gmail SMTP |
 | `GROQ_API_KEY` | Generates researched technical-AI copy |
+| `OPENAI_API_KEY` | Generates all five PNGs using the approved reference images |
 
-If the content API is unavailable, the approved evergreen fallback keeps the
-email pipeline working.
+If the text-content API is unavailable, the approved evergreen copy fallback
+keeps the editorial pipeline working. There is intentionally no low-quality
+image fallback: a missing or failed image-model call stops the email.
 
 ## Repository map
 
@@ -179,7 +195,8 @@ email pipeline working.
 src/automation.py       Build, validate, and send one package
 src/research.py         Find, rank, and gather recent technical AI topics
 src/content_engine.py   Create synchronized three-line copy and slide copy
-src/renderer.py          Render the approved five-slide visual system
+src/image_engine.py     Generate PNGs from direct Ref Image inputs
+src/renderer.py          Developer-only deterministic preview and shared visual data
 src/emailer.py           Attach PNGs and send the Gmail message
 assets/approved/         Mascot and approved reference carousel
 assets/approved/reference-style/

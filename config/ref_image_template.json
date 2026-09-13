@@ -1,7 +1,8 @@
 {
-  "name": "ref-image-handwritten-v2",
+  "name": "ref-image-handwritten-v3-image-model",
+  "render_engine": "OpenAI Images API with direct reference-image inputs",
   "source_of_truth": "assets/approved/reference-style/",
-  "canvas": [1080, 1350],
+  "canvas": [1122, 1402],
   "invariants": {
     "background": "warm cream paper with a soft edge vignette",
     "headline": "oversized black brush-marker lettering",

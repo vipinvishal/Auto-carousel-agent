@@ -4,7 +4,7 @@
   "language": "English",
   "timezone": "Asia/Kolkata",
   "canvas": {"width": 1122, "height": 1402},
-  "template": "ref-image-handwritten-v2",
+  "template": "ref-image-handwritten-v3-image-model",
   "reference_style": "assets/approved/reference-style/",
   "reference_style_note": "Permanent visual source of truth copied from the owner's Ref Image directory; do not replace with the old renderer style.",
   "reference_carousel": "assets/approved/reference-carousel/slide-01.png ... slide-05.png",
