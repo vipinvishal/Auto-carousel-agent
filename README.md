@@ -30,9 +30,9 @@ automation in the cloud.
 
 | India time | What happens |
 |---|---|
-| 9:00 AM IST | Morning AI carousel |
-| 12:00 PM IST | Noon AI carousel |
-| 5:00 PM IST | Evening AI carousel |
+| 9:00 AM IST | Exact approved carousel |
+| 12:00 PM IST | Exact approved carousel |
+| 5:00 PM IST | Exact approved carousel |
 
 GitHub uses UTC internally, so the workflow uses `03:30`, `06:30`, and `11:30`
 UTC for these three India-time deliveries.
@@ -87,15 +87,18 @@ For model releases, the content focuses on task fit and trade-offs—not a
 permanent “best model” claim. Current claims are tied to research sources and
 dated comparisons.
 
-## Image behavior: exact reference vs new topics
+## Image behavior: exact reference vs preview topics
 
 The approved LLM reference carousel is stored in
-`assets/approved/reference-carousel/` and is used unchanged for the exact
-template test.
+`assets/approved/reference-carousel/` and is used unchanged for every
+scheduled email. This is intentional: the approved raster set is the visual
+source of truth, so a scheduled delivery cannot silently fall back to the old
+approximate redraw.
 
-For new researched topics, the renderer creates fresh slides using the same
-approved design system. This keeps the wording, diagrams, and email text
-synchronized instead of reusing an old topic’s artwork.
+For new researched topics, use **Actions → Run workflow** with `topic=auto` or
+one of the topic choices. Those previews use the deterministic renderer and
+keep the post and slides synchronized, but they are not the exact approved
+reference PNGs.
 
 ## Run a safe local test
 
