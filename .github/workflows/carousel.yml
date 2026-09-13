@@ -22,7 +22,7 @@ on:
         default: false
         type: boolean
       reference_lock:
-        description: 'Attach the exact five PNGs from the approved Ref Image library'
+        description: 'Attach the exact five owner-approved LLM PNGs'
         required: false
         default: false
         type: boolean

@@ -21,7 +21,6 @@ from renderer import (
     APPROVED_REFERENCE_DIR,
     MASCOT_PATH,
     OUTPUT_SIZE,
-    REFERENCE_STYLE_DIR,
     VISUAL_TEMPLATE,
     render_slide,
 )
@@ -33,14 +32,8 @@ IST = ZoneInfo("Asia/Kolkata")
 SLOTS = ("0900", "1200", "1700")
 LOGGER = logging.getLogger("vipinislearning.carousel")
 REFERENCE_SLIDES = tuple(
-    REFERENCE_STYLE_DIR / name
-    for name in (
-        "01-cover.png",
-        "02-how-to-build.png",
-        "03-pdf-study-agent.png",
-        "04-smart-task-agent.png",
-        "05-personal-study-coach.png",
-    )
+    APPROVED_REFERENCE_DIR / f"slide-{index:02d}.png"
+    for index in range(1, 6)
 )
 REFERENCE_POST_LINES = [
     "Stop learning AI agents. Build these 5 instead.",
@@ -100,8 +93,8 @@ def build_package(
     render_mode = "pillow-approved-template"
     for slide_no in range(1, 6):
         path = folder / f"slide-{slide_no:02d}.png"
-        # Explicit reference-lock delivery copies the owner's approved Ref
-        # Image PNGs unchanged. This is the only path that promises the exact
+        # Explicit reference-lock delivery copies the five owner-approved LLM
+        # PNGs unchanged. This is the only path that promises the exact
         # hand-lettered raster artwork in the email.
         if reference_lock:
             source_path = REFERENCE_SLIDES[slide_no - 1]

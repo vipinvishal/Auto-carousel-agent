@@ -117,7 +117,7 @@ class PipelineTests(unittest.TestCase):
                 self.assertEqual(image.size, reference.size)
                 self.assertEqual(image.tobytes(), reference.tobytes())
 
-    def test_reference_lock_uses_exact_ref_image_pngs(self):
+    def test_reference_lock_uses_exact_approved_llm_pngs(self):
         folder, package, slides = automation.build_package(
             date(2099, 1, 3), "1700", reference_lock=True
         )
