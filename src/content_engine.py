@@ -16,6 +16,7 @@ from renderer import VISUAL_LABELS as FALLBACK_VISUAL_LABELS
 logger = logging.getLogger(__name__)
 
 MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+OPENAI_TEXT_MODEL = os.getenv("OPENAI_TEXT_MODEL", "gpt-5-mini")
 HASHTAGS = ("#AI", "#LLM", "#AIEngineering", "#MachineLearning")
 ICON_TYPES = {
     "answer", "brain", "chunks", "clock", "code", "coins", "context",
@@ -179,10 +180,45 @@ def _valid(data: object) -> bool:
     return all(isinstance(slide, dict) and slide.get("title") and slide.get("body") for slide in slides)
 
 
+def _call_content_model(prompt: str) -> tuple[dict, str]:
+    failures: list[str] = []
+    groq_key = os.getenv("GROQ_API_KEY", "")
+    if groq_key:
+        try:
+            response = Groq(api_key=groq_key).chat.completions.create(
+                model=MODEL,
+                messages=[{"role": "system", "content": _SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
+                temperature=0.25,
+                max_tokens=3_000,
+                response_format={"type": "json_object"},
+            )
+            return json.loads(response.choices[0].message.content), "groq-validated"
+        except Exception as exc:
+            failures.append(f"Groq: {exc}")
+
+    if os.getenv("OPENAI_API_KEY"):
+        try:
+            from openai import OpenAI
+
+            response = OpenAI().responses.create(
+                model=OPENAI_TEXT_MODEL,
+                instructions=_SYSTEM_PROMPT,
+                input=prompt,
+                max_output_tokens=3_000,
+            )
+            raw = response.output_text.strip()
+            if raw.startswith("```"):
+                raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.IGNORECASE)
+            return json.loads(raw), "openai-validated"
+        except Exception as exc:
+            failures.append(f"OpenAI: {exc}")
+
+    raise RuntimeError("; ".join(failures) or "no content-model API key is configured")
+
+
 def generate_content(candidate: dict | None, topic_key: str, force_fallback: bool = False) -> dict:
     fallback = _fallback(topic_key, candidate)
-    api_key = os.getenv("GROQ_API_KEY", "")
-    if force_fallback or not api_key or not candidate:
+    if force_fallback or not candidate:
         return fallback
 
     prompt = _USER_PROMPT.format(
@@ -202,14 +238,7 @@ def generate_content(candidate: dict | None, topic_key: str, force_fallback: boo
         rulebook=json.dumps(RULEBOOK, ensure_ascii=False),
     )
     try:
-        response = Groq(api_key=api_key).chat.completions.create(
-            model=MODEL,
-            messages=[{"role": "system", "content": _SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
-            temperature=0.25,
-            max_tokens=3_000,
-            response_format={"type": "json_object"},
-        )
-        data = json.loads(response.choices[0].message.content)
+        data, generation_mode = _call_content_model(prompt)
         if not _valid(data):
             raise ValueError("model returned an invalid carousel schema")
         data["post_lines"] = _normalize_post(data["post_lines"], fallback["post_lines"])
@@ -225,7 +254,7 @@ def generate_content(candidate: dict | None, topic_key: str, force_fallback: boo
         data["trend_score"] = candidate.get("trend_score")
         data["research_signals"] = candidate.get("signals", [])
         data["evidence"] = candidate.get("evidence", [])
-        data["generation_mode"] = "groq-validated"
+        data["generation_mode"] = generation_mode
         data["topic_key"] = topic_key
         data["highlights"] = [
             str(slide.get("highlight") or fallback["highlights"][index])

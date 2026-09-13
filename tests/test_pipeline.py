@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import unittest
 from datetime import date
@@ -137,6 +138,15 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("Text (verbatim", prompt)
         self.assertIn("large expressive bird", prompt.lower())
         self.assertIn("Avoid: SaaS dashboard", prompt)
+
+    @patch.dict(os.environ, {"GROQ_API_KEY": "invalid", "OPENAI_API_KEY": "configured"})
+    @patch("openai.OpenAI")
+    @patch.object(content_engine, "Groq", side_effect=RuntimeError("invalid key"))
+    def test_openai_copy_fallback_replaces_invalid_groq(self, _groq, openai_client):
+        openai_client.return_value.responses.create.return_value.output_text = '{"ok": true}'
+        data, mode = content_engine._call_content_model("test")
+        self.assertEqual(data, {"ok": True})
+        self.assertEqual(mode, "openai-validated")
 
     def test_viral_rulebook_is_loaded_by_content_engine(self):
         self.assertEqual(content_engine.RULEBOOK["story_arc"], ["curiosity", "tension", "insight", "payoff"])
