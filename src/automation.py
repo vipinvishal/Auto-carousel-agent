@@ -25,7 +25,7 @@ from renderer import (
     VISUAL_TEMPLATE,
     render_slide,
 )
-from research import choose_candidate, classify_topic
+from research import choose_candidate
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_ROOT = ROOT / "out"
