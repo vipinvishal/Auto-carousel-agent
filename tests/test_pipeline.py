@@ -49,10 +49,11 @@ class PipelineTests(unittest.TestCase):
         self.assertTrue(research._is_technical_ai("New AI model adds structured tool calling"))
 
     @patch.object(research, "_scrape_context", return_value="A technical explanation from the selected source.")
+    @patch.object(research, "_fetch_exa", return_value=[])
     @patch.object(research, "_fetch_google_news")
     @patch.object(research, "_fetch_reddit")
     @patch.object(research, "_fetch_hn")
-    def test_research_selects_high_signal_story_and_keeps_evidence(self, fetch_hn, fetch_reddit, fetch_news, scrape):
+    def test_research_selects_high_signal_story_and_keeps_evidence(self, fetch_hn, fetch_reddit, fetch_news, _fetch_exa, scrape):
         now = research.time.time()
         fetch_hn.return_value = [{
             "id": "hn:1",
@@ -150,6 +151,8 @@ class PipelineTests(unittest.TestCase):
         data, mode = content_engine._call_content_model("test")
         self.assertEqual(data, {"ok": True})
         self.assertEqual(mode, "openrouter-validated:openrouter/free")
+        self.assertEqual(post.call_args.kwargs["json"]["max_tokens"], 8000)
+        self.assertEqual(post.call_args.kwargs["json"]["reasoning"], {"exclude": True})
 
     def test_viral_rulebook_is_loaded_by_content_engine(self):
         self.assertEqual(content_engine.RULEBOOK["story_arc"], ["curiosity", "tension", "insight", "payoff"])

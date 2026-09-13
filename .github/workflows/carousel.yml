@@ -92,6 +92,9 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENROUTER_MODEL: openrouter/free
+          OPENROUTER_MAX_TOKENS: '8000'
+          EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
+          REQUIRE_EXA: 'true'
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_IMAGE_MODEL: gemini-3.1-flash-image
           CAROUSEL_SLOT: ${{ steps.slot.outputs.slot }}
@@ -109,6 +112,10 @@ jobs:
           else
             if [ -z "$OPENROUTER_API_KEY" ]; then
               echo "::error::OPENROUTER_API_KEY is required for live researched copy."
+              exit 1
+            fi
+            if [ -z "$EXA_API_KEY" ]; then
+              echo "::error::EXA_API_KEY is required for Exa-grounded topic research."
               exit 1
             fi
             if [ -z "$GEMINI_API_KEY" ]; then

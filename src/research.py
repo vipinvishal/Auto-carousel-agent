@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree
 
@@ -23,6 +24,7 @@ from bs4 import BeautifulSoup
 logger = logging.getLogger(__name__)
 
 _HN_BASE = "https://hacker-news.firebaseio.com/v0"
+_EXA_SEARCH_URL = "https://api.exa.ai/search"
 _HEADERS = {
     "User-Agent": "vipinislearning-ai-carousel/1.0 (+https://github.com/vipinvishal/Auto-carousel-agent)",
     "Accept": "application/json,text/html;q=0.9,*/*;q=0.8",
@@ -35,6 +37,11 @@ _GOOGLE_NEWS_QUERIES = (
 )
 _CUTOFF_SECONDS = 72 * 60 * 60
 _MAX_CONTEXT = 7_000
+_EXA_QUERIES = (
+    "latest technical AI model release LLM agents RAG evaluation developer",
+    "latest AI engineering LLM reliability retrieval prompt tool calling",
+    "latest generative AI research model provider benchmark deployment",
+)
 
 _WHOLE_WORD_TERMS = re.compile(
     r"\b(ai|ml|llm|llms|rag|gpu|gpus|gpt|api|evals|embedding|inference)\b",
@@ -208,6 +215,78 @@ def _fetch_google_news() -> list[dict]:
     return stories
 
 
+def _fetch_exa() -> list[dict]:
+    """Fetch current, source-grounded technical AI evidence from Exa.
+
+    Exa is the canonical research layer for scheduled jobs. Social/news feeds
+    are retained below only to add public-engagement and recurrence signals.
+    """
+    api_key = os.getenv("EXA_API_KEY", "")
+    if not api_key:
+        logger.warning("EXA_API_KEY is not configured; Exa research is unavailable")
+        return []
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    stories: list[dict] = []
+    for query in _EXA_QUERIES:
+        try:
+            response = requests.post(
+                _EXA_SEARCH_URL,
+                headers={"x-api-key": api_key, "Content-Type": "application/json"},
+                json={
+                    "query": query,
+                    "type": "auto",
+                    "category": "news",
+                    "numResults": 8,
+                    "startPublishedDate": cutoff.isoformat().replace("+00:00", "Z"),
+                    "contents": {
+                        "text": True,
+                        "highlights": True,
+                        "livecrawl": "preferred",
+                        "maxAgeHours": 168,
+                    },
+                },
+                timeout=30,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as exc:
+            logger.warning("Exa search failed for %r: %s", query, exc)
+            continue
+
+        for item in payload.get("results", []):
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title") or "").strip()
+            url = str(item.get("url") or "").strip()
+            if not title or not url or not _is_technical_ai(title):
+                continue
+            published = str(item.get("publishedDate") or "")
+            try:
+                created = datetime.fromisoformat(published.replace("Z", "+00:00")).timestamp()
+            except ValueError:
+                created = time.time()
+            if created < cutoff.timestamp():
+                continue
+            highlights = item.get("highlights") or []
+            text = " ".join(str(value) for value in highlights if value).strip()
+            if not text:
+                text = str(item.get("text") or "").strip()
+            stable_key = f"{title}\n{url}"
+            stories.append({
+                "id": f"exa:{hashlib.sha1(stable_key.encode('utf-8')).hexdigest()[:16]}",
+                "title": title,
+                "url": url,
+                "source": "Exa",
+                "score": 30,
+                "comments": 0,
+                "created": created,
+                "selftext": text[:_MAX_CONTEXT],
+                "exa_context": text[:_MAX_CONTEXT],
+            })
+    return stories
+
+
 def _scrape_context(candidate: dict) -> str:
     selftext = str(candidate.get("selftext", "")).strip()
     if len(selftext) > 240:
@@ -254,7 +333,10 @@ def choose_candidate(day, slot: str) -> dict | None:
     specificity, and recurrence across HN/Reddit/Google News. It is a public
     trend proxy, not a claim about private platform view counts.
     """
-    stories = _fetch_hn() + _fetch_reddit() + _fetch_google_news()
+    exa_stories = _fetch_exa()
+    if os.getenv("REQUIRE_EXA", "").lower() == "true" and not exa_stories:
+        raise RuntimeError("Exa returned no current technical-AI research; stopping before content generation")
+    stories = exa_stories + _fetch_hn() + _fetch_reddit() + _fetch_google_news()
     deduped: dict[str, dict] = {}
     for story in stories:
         key = re.sub(r"[^a-z0-9]+", " ", story["title"].lower()).strip()
@@ -272,8 +354,11 @@ def choose_candidate(day, slot: str) -> dict | None:
         existing["score"] = max(int(existing.get("score", 0)), int(story.get("score", 0)))
         existing["comments"] = max(int(existing.get("comments", 0)), int(story.get("comments", 0)))
         existing["created"] = max(float(existing.get("created", 0)), float(story.get("created", 0)))
+    # When Exa is available, it is the source-of-truth pool. Other feeds help
+    # with trend signals but do not replace Exa-grounded evidence.
+    primary_pool = [story for story in deduped.values() if "Exa" in story.get("signals", [])]
     ranked = sorted(
-        deduped.values(),
+        primary_pool or deduped.values(),
         key=lambda story: (
             _story_score(story["title"], story["score"] + min(120, story.get("comments", 0) * 2), story["url"], story["created"])
             + min(18.0, (story.get("signal_count", 1) - 1) * 6.0)

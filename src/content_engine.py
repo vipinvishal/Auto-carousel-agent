@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+MAX_OUTPUT_TOKENS = int(os.getenv("OPENROUTER_MAX_TOKENS", "8000"))
 HASHTAGS = ("#AI", "#LLM", "#AIEngineering", "#MachineLearning")
 ICON_TYPES = {
     "answer", "brain", "chunks", "clock", "code", "coins", "context",
@@ -185,36 +186,48 @@ def _call_content_model(prompt: str) -> tuple[dict, str]:
     if not api_key:
         raise RuntimeError("OPENROUTER_API_KEY is required for live researched carousel copy")
 
-    response = requests.post(
-        OPENROUTER_URL,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/vipinvishal/Auto-carousel-agent",
-            "X-OpenRouter-Title": "vipinislearning AI Carousel Automator",
-        },
-        json={
-            "model": MODEL,
-            "messages": [
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.25,
-            "max_tokens": 3_000,
-            "response_format": {"type": "json_object"},
-        },
-        timeout=90,
-    )
-    if not response.ok:
-        raise RuntimeError(f"OpenRouter returned {response.status_code}: {response.text[:500]}")
-    payload = response.json()
-    try:
-        raw = str(payload["choices"][0]["message"]["content"]).strip()
-    except (KeyError, IndexError, TypeError) as exc:
-        raise RuntimeError("OpenRouter returned no completion content") from exc
-    if raw.startswith("```"):
-        raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.IGNORECASE)
-    return json.loads(raw), f"openrouter-validated:{payload.get('model', MODEL)}"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/vipinvishal/Auto-carousel-agent",
+        "X-OpenRouter-Title": "vipinislearning AI Carousel Automator",
+    }
+    request_body = {
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.25,
+        # Free routing can select reasoning models. This leaves a large enough
+        # completion budget for the required final JSON after any thinking.
+        "max_tokens": MAX_OUTPUT_TOKENS,
+        "reasoning": {"exclude": True},
+        "response_format": {"type": "json_object"},
+    }
+    failures: list[str] = []
+    for attempt in range(1, 3):
+        response = requests.post(OPENROUTER_URL, headers=headers, json=request_body, timeout=120)
+        if not response.ok:
+            failures.append(f"attempt {attempt}: HTTP {response.status_code}: {response.text[:250]}")
+            continue
+        payload = response.json()
+        choice = (payload.get("choices") or [{}])[0]
+        message = choice.get("message") or {}
+        raw = str(message.get("content") or "").strip()
+        if not raw:
+            failures.append(
+                f"attempt {attempt}: no final content "
+                f"(finish_reason={choice.get('finish_reason')!r}, model={payload.get('model', MODEL)!r})"
+            )
+            continue
+        if raw.startswith("```"):
+            raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.IGNORECASE)
+        try:
+            return json.loads(raw), f"openrouter-validated:{payload.get('model', MODEL)}"
+        except json.JSONDecodeError as exc:
+            failures.append(f"attempt {attempt}: invalid JSON: {exc}")
+    raise RuntimeError("OpenRouter did not return a usable JSON carousel: " + "; ".join(failures))
 
 
 def generate_content(candidate: dict | None, topic_key: str, force_fallback: bool = False) -> dict:

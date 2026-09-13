@@ -64,9 +64,9 @@ flowchart LR
 
 The scheduled job follows this exact order:
 
-1. Research fresh technical AI conversations from Hacker News, Reddit, and Google News.
-2. Rank them using recency, technical relevance, public engagement signals, source quality, and recurrence across sources.
-3. Gather the selected article or discussion context plus related evidence.
+1. Search Exa for fresh, source-grounded technical AI evidence.
+2. Add Hacker News, Reddit, and Google News as public engagement and recurrence signals.
+3. Rank Exa-grounded topics by recency, technical relevance, source quality, and public signals.
 4. Apply `config/viral_carousel_rules.json`, which encodes the approved local `viral-ai-carousel` skill: curiosity → tension → insight → payoff; one idea per slide; and a connected CTA.
 5. Curate the three-line Threads post and five-slide story together.
 6. Generate portrait PNGs with Gemini Image, supplying three approved Ref
@@ -183,6 +183,7 @@ These secrets must be configured in the repository and are never committed:
 |---|---|
 | `GMAIL_APP_PASSWORD` | Sends the email through Gmail SMTP |
 | `OPENROUTER_API_KEY` | Uses `openrouter/free` to curate live researched technical-AI copy |
+| `EXA_API_KEY` | Finds current, source-grounded technical-AI research before writing starts |
 | `GEMINI_API_KEY` | Generates all five PNGs from three approved reference images per slide |
 
 There is intentionally no low-quality fallback: a missing or failed live-copy
