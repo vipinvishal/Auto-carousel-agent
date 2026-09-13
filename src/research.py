@@ -239,16 +239,11 @@ def _fetch_exa() -> list[dict]:
                     "category": "news",
                     "numResults": 8,
                     "startPublishedDate": cutoff.isoformat().replace("+00:00", "Z"),
-                    "contents": {
-                        "text": True,
-                        "highlights": True,
-                        "livecrawl": "preferred",
-                        "maxAgeHours": 168,
-                    },
                 },
                 timeout=30,
             )
-            response.raise_for_status()
+            if not response.ok:
+                raise RuntimeError(f"HTTP {response.status_code}: {response.text[:500]}")
             payload = response.json()
         except Exception as exc:
             logger.warning("Exa search failed for %r: %s", query, exc)
