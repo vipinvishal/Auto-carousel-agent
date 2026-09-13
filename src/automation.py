@@ -17,7 +17,7 @@ from PIL import Image
 
 from content_engine import generate_content
 from emailer import send_package
-from renderer import APPROVED_REFERENCE_DIR, MASCOT_PATH, VISUAL_TEMPLATE, W, H, render_slide
+from renderer import APPROVED_REFERENCE_DIR, MASCOT_PATH, OUTPUT_SIZE, VISUAL_TEMPLATE, render_slide
 from research import choose_candidate, classify_topic
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,7 +84,7 @@ def build_package(day: date, slot: str, topic_key: str | None = None, force_fall
         "recipient_email": "vipinislearning@gmail.com",
         "visual_template": VISUAL_TEMPLATE,
         "render_mode": render_mode,
-        "visual_dimensions": f"{W}x{H}",
+        "visual_dimensions": f"{OUTPUT_SIZE[0]}x{OUTPUT_SIZE[1]}",
         "post_lines": topic["post_lines"],
         "source": source,
         "source_url": candidate.get("url", "") if candidate else "",
@@ -108,7 +108,7 @@ def validate(folder: Path, package: dict, slides: list[Path]) -> list[str]:
         errors.append("third post line must include hashtags")
     if len(slides) != 5:
         errors.append("package must contain exactly five PNG slides")
-    expected_size = (1122, 1402) if package.get("render_mode") == "exact-approved-reference" else (W, H)
+    expected_size = OUTPUT_SIZE
     for path in slides:
         try:
             with Image.open(path) as image:

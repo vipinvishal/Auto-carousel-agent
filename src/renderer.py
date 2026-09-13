@@ -15,11 +15,18 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 W, H = 1080, 1350
+# Ref Image and the approved raster carousel use this final portrait size.
+# The renderer draws on the compact design grid above, then exports once at
+# this size so every generated PNG matches the reference dimensions.
+OUTPUT_W, OUTPUT_H = 1122, 1402
+OUTPUT_SIZE = (OUTPUT_W, OUTPUT_H)
 M = 74
 
 FONT_DIR = ROOT / "assets/fonts"
 FONT_HAND = str(FONT_DIR / "PatrickHand-Regular.ttf")
-FONT_HAND_BOLD = str(FONT_DIR / "Fredoka-Bold.ttf")
+# Ref Image uses a marker-like handwritten voice for every text layer. Keep
+# the old rounded Fredoka headline treatment out of the generated template.
+FONT_HAND_BOLD = FONT_HAND
 FONT_BODY = str(FONT_DIR / "NunitoSans-Regular.ttf")
 FONT_BODY_BOLD = str(FONT_DIR / "NunitoSans-Bold.ttf")
 MASCOT_PATH = ROOT / "assets/approved/blue-bird-mascot.png"
@@ -28,7 +35,7 @@ APPROVED_REFERENCE_DIR = ROOT / "assets/approved/reference-carousel"
 # the approved hand-drawn composition, mascot treatment, marker lettering,
 # brush highlights, pastel cards, and CTA style for all future work.
 REFERENCE_STYLE_DIR = ROOT / "assets/approved/reference-style"
-VISUAL_TEMPLATE = "approved-reference-carousel-v3"
+VISUAL_TEMPLATE = "ref-image-handwritten-v1"
 
 COLORS = {
     "paper": "#FAF8F3",
@@ -205,6 +212,14 @@ def wrap_text(draw, text: str, font_obj, max_width: int):
 def brush_rect(draw, box, fill, radius=30):
     x1, y1, x2, y2 = box
     draw.rounded_rectangle(box, radius, fill=fill)
+    # Layer fixed, irregular marker passes over the smooth base. Keeping the
+    # offsets deterministic makes the style stable in GitHub Actions.
+    height = max(1, y2 - y1)
+    passes = ((0.18, -8, 6), (0.36, 3, -4), (0.54, -5, 8), (0.72, 4, -6), (0.88, -7, 5))
+    width = max(8, int(height * 0.22))
+    for fraction, left_offset, right_offset in passes:
+        yy = y1 + int(height * fraction)
+        draw.line((x1 + left_offset, yy, x2 + right_offset, yy + 1), fill=fill, width=width)
     # Short edge strokes make the band feel painted rather than UI-generated.
     draw.line((x1 + 20, y1 + 4, x2 - 22, y1 + 1), fill=fill, width=8)
     draw.line((x1 + 12, y2 - 4, x2 - 12, y2 + 2), fill=fill, width=7)
@@ -213,10 +228,19 @@ def brush_rect(draw, box, fill, radius=30):
 
 
 def draw_centered(draw, text, center_x, y, font_obj, fill, max_width, gap=8):
+    stroke_width = 2 if font_obj.size >= 48 else (1 if font_obj.size >= 26 else 0)
     lines = wrap_text(draw, text, font_obj, max_width)
     line_height = font_obj.size + gap
     for index, line in enumerate(lines):
-        draw.text((center_x, y + index * line_height), line, font=font_obj, fill=fill, anchor="ma")
+        draw.text(
+            (center_x, y + index * line_height),
+            line,
+            font=font_obj,
+            fill=fill,
+            anchor="ma",
+            stroke_width=stroke_width,
+            stroke_fill=fill,
+        )
     return y + len(lines) * line_height
 
 
@@ -237,7 +261,14 @@ def draw_title(draw, text, highlight, y=112):
             left = (W - draw.textbbox((0, 0), line, font=font)[2]) // 2
             brush_rect(draw, (left + prefix_w - 16, line_y + 10, left + prefix_w + fragment_w + 16, line_y + 76), COLORS["yellow"], 28)
         left = (W - draw.textbbox((0, 0), line, font=font)[2]) // 2
-        draw.text((left, line_y), line, font=font, fill=COLORS["ink"])
+        draw.text(
+            (left, line_y),
+            line,
+            font=font,
+            fill=COLORS["ink"],
+            stroke_width=3,
+            stroke_fill=COLORS["ink"],
+        )
         if start >= 0:
             prefix_w = draw.textbbox((0, 0), line[:start], font=font)[2]
             fragment_w = draw.textbbox((0, 0), line[start:start + len(highlight)], font=font)[2]
@@ -251,7 +282,15 @@ def draw_header(draw, label):
     width = draw.textbbox((0, 0), label, font=font)[2]
     box = (W // 2 - width // 2 - 24, 30, W // 2 + width // 2 + 24, 94)
     brush_rect(draw, box, COLORS["yellow"], 28)
-    draw.text((W // 2, 61), label, font=font, fill=COLORS["ink"], anchor="mm")
+    draw.text(
+        (W // 2, 61),
+        label,
+        font=font,
+        fill=COLORS["ink"],
+        anchor="mm",
+        stroke_width=1,
+        stroke_fill=COLORS["ink"],
+    )
     for x, y, dx, dy in ((250, 40, -24, -20), (830, 40, 24, -20), (205, 82, -30, 0), (875, 82, 30, 0)):
         draw.line((x, y, x + dx, y + dy), fill=COLORS["yellow"], width=8)
 
@@ -340,7 +379,15 @@ def draw_chip(draw, cx, cy, scale=1.0):
     w = int(104 * scale)
     draw.rounded_rectangle((cx - w, cy - w, cx + w, cy + w), int(22 * scale), fill=COLORS["white"], outline=COLORS["ink"], width=max(5, int(8 * scale)))
     draw.rounded_rectangle((cx - int(62 * scale), cy - int(62 * scale), cx + int(62 * scale), cy + int(62 * scale)), int(14 * scale), fill=COLORS["blue"], outline=COLORS["ink"], width=max(4, int(6 * scale)))
-    draw.text((cx, cy), "AI", font=f(FONT_HAND_BOLD, int(48 * scale)), fill=COLORS["ink"], anchor="mm")
+    draw.text(
+        (cx, cy),
+        "AI",
+        font=f(FONT_HAND_BOLD, int(48 * scale)),
+        fill=COLORS["ink"],
+        anchor="mm",
+        stroke_width=max(1, int(2 * scale)),
+        stroke_fill=COLORS["ink"],
+    )
     for offset in (-58, 0, 58):
         draw.line((cx - w - 28, cy + offset, cx - w, cy + offset), fill=COLORS["ink"], width=max(4, int(8 * scale)))
         draw.line((cx + w, cy + offset, cx + w + 28, cy + offset), fill=COLORS["ink"], width=max(4, int(8 * scale)))
@@ -402,7 +449,15 @@ def draw_icon(draw, kind, cx, cy, scale=1.0):
     elif kind == "warning" or kind == "wrong":
         triangle = int(70 * scale)
         draw.polygon([(cx, cy - triangle), (cx + triangle, cy + triangle), (cx - triangle, cy + triangle)], fill=COLORS["red"], outline=COLORS["ink"])
-        draw.text((cx, cy + int(15 * scale)), "!" if kind == "warning" else "×", font=f(FONT_HAND_BOLD, max(24, int(58 * scale))), fill=COLORS["ink"], anchor="mm")
+        draw.text(
+            (cx, cy + int(15 * scale)),
+            "!" if kind == "warning" else "×",
+            font=f(FONT_HAND_BOLD, max(24, int(58 * scale))),
+            fill=COLORS["ink"],
+            anchor="mm",
+            stroke_width=max(1, int(2 * scale)),
+            stroke_fill=COLORS["ink"],
+        )
     elif kind == "chunks":
         draw_document(draw, cx - 28, cy + 10, scale * 0.72)
         draw_document(draw, cx + 22, cy - 6, scale * 0.72)
@@ -417,12 +472,18 @@ def draw_icon(draw, kind, cx, cy, scale=1.0):
         draw_target(draw, cx, cy, scale * 0.8)
 
 
-def draw_card(draw, x, y, w, h, fill, label, icon_kind, icon_scale=1.0):
+def draw_card(draw, x, y, w, h, fill, label, icon_kind, icon_scale=1.0, label_band=False):
     draw.rounded_rectangle((x, y, x + w, y + h), 34, fill=fill)
     draw_rays(draw, x + w // 2, y + int(h * 0.42), COLORS["ink"], count=8, radius=int(min(w, h) * 0.31))
     draw_icon(draw, icon_kind, x + w // 2, y + int(h * 0.40), icon_scale)
     label_font = f(FONT_HAND_BOLD, 30 if len(label) < 12 else 26)
-    draw_centered(draw, label, x + w // 2, y + h - 54, label_font, COLORS["ink"], w - 24, gap=0)
+    if label_band:
+        # Ref Image places each handwritten label on a second brush pass,
+        # instead of putting UI-like text inside the icon card.
+        brush_rect(draw, (x + 8, y + h - 8, x + w - 8, y + h + 64), fill, 24)
+        draw_centered(draw, label, x + w // 2, y + h + 4, label_font, COLORS["ink"], w - 24, gap=0)
+    else:
+        draw_centered(draw, label, x + w // 2, y + h - 54, label_font, COLORS["ink"], w - 24, gap=0)
 
 
 def draw_arrow(draw, x1, y1, x2, y2):
@@ -464,12 +525,12 @@ def draw_bottom(draw, im, topic, slide_no, banner_y, cta_y=None):
     draw_cta(draw, topic.get("ctas", ["Save this."] * 5)[slide_no - 1], (520, cta_y, 1000, min(1305, cta_y + 245)))
 
 
-def draw_four_cards(draw, topic_key, slide_no, y, h=265):
+def draw_four_cards(draw, topic_key, slide_no, y, h=265, label_band=False):
     items = VISUAL_LABELS.get(topic_key, VISUAL_LABELS["rag"])[slide_no]
     w, gap, start = 228, 24, 30
     for i, (label, icon) in enumerate(items[:4]):
         x = start + i * (w + gap)
-        draw_card(draw, x, y, w, h, COLORS[PASTELS[i]], label, icon, icon_scale=0.86)
+        draw_card(draw, x, y, w, h, COLORS[PASTELS[i]], label, icon, icon_scale=0.86, label_band=label_band)
         if i < 3:
             draw_arrow(draw, x + w + 3, y + h // 2, x + w + gap - 6, y + h // 2)
 
@@ -492,9 +553,25 @@ def draw_checklist(draw, topic_key, y):
         yy = y + i * 122
         draw.rounded_rectangle((100, yy, 980, yy + 104), 24, fill=COLORS[fills[i]])
         draw.ellipse((126, yy + 19, 198, yy + 91), fill=COLORS[fills[i]], outline=COLORS["ink"], width=4)
-        draw.text((162, yy + 55), str(i + 1), font=f(FONT_HAND_BOLD, 44), fill=COLORS["ink"], anchor="mm")
+        draw.text(
+            (162, yy + 55),
+            str(i + 1),
+            font=f(FONT_HAND_BOLD, 44),
+            fill=COLORS["ink"],
+            anchor="mm",
+            stroke_width=2,
+            stroke_fill=COLORS["ink"],
+        )
         draw_icon(draw, icon, 285, yy + 52, 0.46)
-        draw.text((490, yy + 55), label, font=f(FONT_HAND_BOLD, 39), fill=COLORS["ink"], anchor="mm")
+        draw.text(
+            (490, yy + 55),
+            label,
+            font=f(FONT_HAND_BOLD, 39),
+            fill=COLORS["ink"],
+            anchor="mm",
+            stroke_width=2,
+            stroke_fill=COLORS["ink"],
+        )
         draw.ellipse((875, yy + 16, 951, yy + 92), fill=COLORS["green"])
         draw.line((895, yy + 53, 918, yy + 74), fill=COLORS["white"], width=9)
         draw.line((918, yy + 74, 938, yy + 34), fill=COLORS["white"], width=9)
@@ -518,9 +595,9 @@ def render_slide(slide_no, total, topic, out_path):
 
     if slide_no == 1:
         draw_centered(draw, body, W // 2, 468, f(FONT_HAND, 35), COLORS["ink"], W - 130, gap=3)
-        draw_four_cards(draw, topic_key, 1, 570, h=275)
-        draw_banner(draw, banner, 878, 98)
-        draw_bottom(draw, im, topic, slide_no, 1000, 1005)
+        draw_four_cards(draw, topic_key, 1, 565, h=230, label_band=True)
+        draw_banner(draw, banner, 925, 98)
+        draw_bottom(draw, im, topic, slide_no, 1040, 1045)
     elif slide_no == 2:
         draw_centered(draw, body, W // 2, 370, f(FONT_HAND, 35), COLORS["ink"], W - 130, gap=3)
         draw_two_by_two(draw, topic_key, 2, 440, card_h=235)
@@ -550,4 +627,8 @@ def render_slide(slide_no, total, topic, out_path):
         draw_banner(draw, banner, 875, 94)
         draw_bottom(draw, im, topic, slide_no, 985, 1015)
 
-    im.convert("RGB").save(out_path, format="PNG", optimize=True)
+    # Export at the same dimensions as the supplied Ref Image files. The
+    # single final resize keeps the layout deterministic and avoids different
+    # line wrapping between local and GitHub Actions environments.
+    exported = im.convert("RGB").resize(OUTPUT_SIZE, Image.Resampling.LANCZOS)
+    exported.save(out_path, format="PNG", optimize=True)

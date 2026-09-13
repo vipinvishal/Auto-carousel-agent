@@ -19,11 +19,10 @@ from renderer import (  # noqa: E402
     FONT_BODY_BOLD,
     FONT_HAND,
     FONT_HAND_BOLD,
-    H,
     MASCOT_PATH,
+    OUTPUT_SIZE,
     REFERENCE_STYLE_DIR,
     VISUAL_TEMPLATE,
-    W,
 )
 
 
@@ -47,7 +46,7 @@ class PipelineTests(unittest.TestCase):
         self.assertFalse(package["manual_review_required"])
         self.assertEqual(package["visual_template"], VISUAL_TEMPLATE)
         with Image.open(slides[0]) as image:
-            self.assertEqual(image.size, (W, H))
+            self.assertEqual(image.size, OUTPUT_SIZE)
             self.assertEqual(image.format, "PNG")
         metadata = json.loads((folder / "package.json").read_text(encoding="utf-8"))
         self.assertEqual(metadata["slides"], [path.name for path in slides])

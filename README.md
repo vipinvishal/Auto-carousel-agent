@@ -35,9 +35,9 @@ automation in the cloud.
 
 | India time | What happens |
 |---|---|
-| 9:00 AM IST | Exact approved carousel |
-| 12:00 PM IST | Exact approved carousel |
-| 5:00 PM IST | Exact approved carousel |
+| 9:00 AM IST | Researched topic in Ref Image template |
+| 12:00 PM IST | Researched topic in Ref Image template |
+| 5:00 PM IST | Researched topic in Ref Image template |
 
 GitHub uses UTC internally, so the workflow uses `03:30`, `06:30`, and `11:30`
 UTC for these three India-time deliveries.
@@ -92,18 +92,19 @@ For model releases, the content focuses on task fit and trade-offs—not a
 permanent “best model” claim. Current claims are tied to research sources and
 dated comparisons.
 
-## Image behavior: exact reference vs preview topics
+## Image behavior: reusable reference template
 
-The approved LLM reference carousel is stored in
-`assets/approved/reference-carousel/` and is used unchanged for every
-scheduled email. This is intentional: the approved raster set is the visual
-source of truth, so a scheduled delivery cannot silently fall back to the old
-approximate redraw.
+The eight-image Ref Image library is stored in
+`assets/approved/reference-style/` and is the permanent visual source of truth.
+The renderer reuses its rules for every new topic: handwritten marker text,
+rough brush highlights, pastel cards, doodle icons, blue bird mascot, and
+high-contrast CTA blocks.
 
-For new researched topics, use **Actions → Run workflow** with `topic=auto` or
-one of the topic choices. Those previews use the deterministic renderer and
-keep the post and slides synchronized, but they are not the exact approved
-reference PNGs.
+For a golden visual test, the approved LLM reference carousel is stored in
+`assets/approved/reference-carousel/` and can be sent unchanged with
+`topic=llm` and `test_fallback=true`. This test path is intentionally separate
+from scheduled delivery, because a static raster cannot carry a new topic's
+content without breaking synchronization.
 
 ## Run a safe local test
 
@@ -128,7 +129,9 @@ carousel** manually with:
 3. `test_fallback = true`.
 
 This sends the exact approved five-slide reference carousel to the configured
-Gmail address without waiting for live research or the content API.
+Gmail address without waiting for live research or the content API. To preview
+the reusable Ref Image template with a topic, run it with `test_fallback=false`
+and choose `topic=agents`, `rag`, `prompting`, or `llm`.
 
 ## Required GitHub secrets
 

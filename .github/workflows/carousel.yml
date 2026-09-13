@@ -73,12 +73,11 @@ jobs:
               *) echo "Unexpected schedule: ${{ github.event.schedule }}"; exit 1 ;;
             esac
             echo "slot=$slot" >> "$GITHUB_OUTPUT"
-            # Scheduled delivery is locked to the exact approved raster set.
-            # This prevents the approximate dynamic redraw from reaching the
-            # inbox while the approved image system remains the visual source
-            # of truth. Dynamic previews remain available through dispatch.
-            echo "fallback=true" >> "$GITHUB_OUTPUT"
-            echo "topic=llm" >> "$GITHUB_OUTPUT"
+            # Scheduled delivery uses the reusable Ref Image handwritten
+            # template for the researched topic. The exact approved raster
+            # set remains available through the manual fallback test only.
+            echo "fallback=false" >> "$GITHUB_OUTPUT"
+            echo "topic=auto" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Generate, validate, and email package
