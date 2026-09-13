@@ -21,6 +21,11 @@ on:
         required: false
         default: false
         type: boolean
+      reference_lock:
+        description: 'Attach the exact five PNGs from the approved Ref Image library'
+        required: false
+        default: false
+        type: boolean
       topic:
         description: 'Optional topic override for a manual preview'
         required: false
@@ -64,6 +69,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "slot=${{ inputs.slot }}" >> "$GITHUB_OUTPUT"
             echo "fallback=${{ inputs.test_fallback }}" >> "$GITHUB_OUTPUT"
+            echo "reference=${{ inputs.reference_lock }}" >> "$GITHUB_OUTPUT"
             echo "topic=${{ inputs.topic }}" >> "$GITHUB_OUTPUT"
           else
             case "${{ github.event.schedule }}" in
@@ -73,11 +79,12 @@ jobs:
               *) echo "Unexpected schedule: ${{ github.event.schedule }}"; exit 1 ;;
             esac
             echo "slot=$slot" >> "$GITHUB_OUTPUT"
-            # Scheduled delivery uses the reusable Ref Image handwritten
-            # template for the researched topic. The exact approved raster
-            # set remains available through the manual fallback test only.
+            # Scheduled delivery copies the owner's approved Ref Image PNGs
+            # unchanged. This guarantees the email contains the exact
+            # hand-lettered artwork instead of a renderer approximation.
             echo "fallback=false" >> "$GITHUB_OUTPUT"
-            echo "topic=auto" >> "$GITHUB_OUTPUT"
+            echo "reference=true" >> "$GITHUB_OUTPUT"
+            echo "topic=reference" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Generate, validate, and email package
@@ -92,7 +99,9 @@ jobs:
           if [ "$CAROUSEL_TOPIC" != "auto" ]; then
             TOPIC_ARGS+=(--topic "$CAROUSEL_TOPIC")
           fi
-          if [ "${{ steps.slot.outputs.fallback }}" = "true" ]; then
+          if [ "${{ steps.slot.outputs.reference }}" = "true" ]; then
+            python src/automation.py --slot "$CAROUSEL_SLOT" --send --reference-lock
+          elif [ "${{ steps.slot.outputs.fallback }}" = "true" ]; then
             python src/automation.py --slot "$CAROUSEL_SLOT" --send --force-fallback "${TOPIC_ARGS[@]}"
           else
             python src/automation.py --slot "$CAROUSEL_SLOT" --send "${TOPIC_ARGS[@]}"

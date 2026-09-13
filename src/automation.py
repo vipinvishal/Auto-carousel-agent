@@ -17,7 +17,14 @@ from PIL import Image
 
 from content_engine import generate_content
 from emailer import send_package
-from renderer import APPROVED_REFERENCE_DIR, MASCOT_PATH, OUTPUT_SIZE, VISUAL_TEMPLATE, render_slide
+from renderer import (
+    APPROVED_REFERENCE_DIR,
+    MASCOT_PATH,
+    OUTPUT_SIZE,
+    REFERENCE_STYLE_DIR,
+    VISUAL_TEMPLATE,
+    render_slide,
+)
 from research import choose_candidate, classify_topic
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +32,21 @@ OUT_ROOT = ROOT / "out"
 IST = ZoneInfo("Asia/Kolkata")
 SLOTS = ("0900", "1200", "1700")
 LOGGER = logging.getLogger("vipinislearning.carousel")
+REFERENCE_SLIDES = tuple(
+    REFERENCE_STYLE_DIR / name
+    for name in (
+        "01-cover.png",
+        "02-how-to-build.png",
+        "03-pdf-study-agent.png",
+        "04-smart-task-agent.png",
+        "05-personal-study-coach.png",
+    )
+)
+REFERENCE_POST_LINES = [
+    "Stop learning AI agents. Build these 5 instead.",
+    "Start with one small workflow, then add tools, checks, and a useful payoff.",
+    "If this changes how you think about learning AI, save it before your next build. #AIAgents #AIEngineering #LLMs",
+]
 
 
 def automatic_slot(now: datetime | None = None) -> str:
@@ -51,10 +73,25 @@ def _email_html(package: dict) -> str:
 </body></html>"""
 
 
-def build_package(day: date, slot: str, topic_key: str | None = None, force_fallback: bool = False):
-    candidate = choose_candidate(day, slot)
-    selected_key = topic_key or (candidate and candidate.get("topic_key")) or "rag"
-    topic = generate_content(candidate, selected_key, force_fallback=force_fallback)
+def build_package(
+    day: date,
+    slot: str,
+    topic_key: str | None = None,
+    force_fallback: bool = False,
+    reference_lock: bool = False,
+):
+    candidate = None if reference_lock else choose_candidate(day, slot)
+    selected_key = "reference" if reference_lock else (topic_key or (candidate and candidate.get("topic_key")) or "rag")
+    if reference_lock:
+        topic = {
+            "topic_key": "reference",
+            "post_lines": REFERENCE_POST_LINES,
+            "source": "Source: owner-approved Ref Image reference carousel",
+            "research_title": "Approved Ref Image carousel",
+            "generation_mode": "exact-reference-assets",
+        }
+    else:
+        topic = generate_content(candidate, selected_key, force_fallback=force_fallback)
     topic_name = selected_key
     folder = OUT_ROOT / day.isoformat() / slot / f"{topic_name}-{_slug(topic.get('research_title', topic_name))}"
     folder.mkdir(parents=True, exist_ok=True)
@@ -63,9 +100,18 @@ def build_package(day: date, slot: str, topic_key: str | None = None, force_fall
     render_mode = "pillow-approved-template"
     for slide_no in range(1, 6):
         path = folder / f"slide-{slide_no:02d}.png"
+        # Explicit reference-lock delivery copies the owner's approved Ref
+        # Image PNGs unchanged. This is the only path that promises the exact
+        # hand-lettered raster artwork in the email.
+        if reference_lock:
+            source_path = REFERENCE_SLIDES[slide_no - 1]
+            if not source_path.exists():
+                raise FileNotFoundError(f"missing approved Ref Image asset: {source_path}")
+            shutil.copyfile(source_path, path)
+            render_mode = "exact-ref-image-reference"
         # The approved LLM carousel is kept as a golden raster reference. A
         # manual fallback test should email those exact files, not a redraw.
-        if force_fallback and selected_key == "llm":
+        elif force_fallback and selected_key == "llm":
             shutil.copyfile(APPROVED_REFERENCE_DIR / f"slide-{slide_no:02d}.png", path)
             render_mode = "exact-approved-reference"
         else:
@@ -126,6 +172,8 @@ def validate(folder: Path, package: dict, slides: list[Path]) -> list[str]:
         errors.append("approved mascot asset is missing")
     if len(list(APPROVED_REFERENCE_DIR.glob("slide-*.png"))) != 5:
         errors.append("approved reference carousel must contain five slides")
+    if len(REFERENCE_SLIDES) != 5 or any(not path.exists() for path in REFERENCE_SLIDES):
+        errors.append("Ref Image reference set must contain five approved slides")
     return errors
 
 
@@ -136,6 +184,7 @@ def main() -> int:
     parser.add_argument("--date", default=None)
     parser.add_argument("--send", action="store_true")
     parser.add_argument("--force-fallback", action="store_true")
+    parser.add_argument("--reference-lock", action="store_true")
     args = parser.parse_args()
 
     now = datetime.now(IST)
@@ -144,7 +193,7 @@ def main() -> int:
     if not slot:
         slot = automatic_slot(now)
 
-    folder, package, slides = build_package(day, slot, args.topic, args.force_fallback)
+    folder, package, slides = build_package(day, slot, args.topic, args.force_fallback, args.reference_lock)
     errors = validate(folder, package, slides)
     if errors:
         raise SystemExit("Validation failed: " + "; ".join(errors))

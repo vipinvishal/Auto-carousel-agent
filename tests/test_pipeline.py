@@ -22,6 +22,7 @@ from renderer import (  # noqa: E402
     MASCOT_PATH,
     OUTPUT_SIZE,
     REFERENCE_STYLE_DIR,
+    REFERENCE_STYLE_DIR,
     VISUAL_TEMPLATE,
 )
 
@@ -69,11 +70,22 @@ class PipelineTests(unittest.TestCase):
                 self.assertEqual(image.size, reference.size)
                 self.assertEqual(image.tobytes(), reference.tobytes())
 
+    def test_reference_lock_uses_exact_ref_image_pngs(self):
+        folder, package, slides = automation.build_package(
+            date(2099, 1, 3), "1700", reference_lock=True
+        )
+        self.assertEqual(automation.validate(folder, package, slides), [])
+        self.assertEqual(package["render_mode"], "exact-ref-image-reference")
+        self.assertEqual(package["topic"], "reference")
+        for slide, reference in zip(slides, automation.REFERENCE_SLIDES):
+            self.assertEqual(slide.read_bytes(), reference.read_bytes())
+
     def test_approved_assets_and_bundled_fonts_exist(self):
         for font_path in (FONT_HAND, FONT_HAND_BOLD, FONT_BODY, FONT_BODY_BOLD):
             self.assertTrue(Path(font_path).exists(), font_path)
         self.assertTrue(MASCOT_PATH.exists())
         self.assertEqual(len(list(APPROVED_REFERENCE_DIR.glob("slide-*.png"))), 5)
+        self.assertEqual(len(list(REFERENCE_STYLE_DIR.glob("*.png"))), 8)
         self.assertEqual(len(list(REFERENCE_STYLE_DIR.glob("*.png"))), 8)
 
 

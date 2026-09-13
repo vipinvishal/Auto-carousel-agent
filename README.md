@@ -35,9 +35,9 @@ automation in the cloud.
 
 | India time | What happens |
 |---|---|
-| 9:00 AM IST | Researched topic in Ref Image template |
-| 12:00 PM IST | Researched topic in Ref Image template |
-| 5:00 PM IST | Researched topic in Ref Image template |
+| 9:00 AM IST | Exact approved Ref Image carousel |
+| 12:00 PM IST | Exact approved Ref Image carousel |
+| 5:00 PM IST | Exact approved Ref Image carousel |
 
 GitHub uses UTC internally, so the workflow uses `03:30`, `06:30`, and `11:30`
 UTC for these three India-time deliveries.
@@ -92,19 +92,18 @@ For model releases, the content focuses on task fit and trade-offs—not a
 permanent “best model” claim. Current claims are tied to research sources and
 dated comparisons.
 
-## Image behavior: reusable reference template
+## Image behavior: exact approved reference delivery
 
 The eight-image Ref Image library is stored in
 `assets/approved/reference-style/` and is the permanent visual source of truth.
-The renderer reuses its rules for every new topic: handwritten marker text,
-rough brush highlights, pastel cards, doodle icons, blue bird mascot, and
-high-contrast CTA blocks.
+Scheduled emails copy the first five approved PNGs byte-for-byte, so the email
+cannot silently send the old renderer style.
 
-For a golden visual test, the approved LLM reference carousel is stored in
-`assets/approved/reference-carousel/` and can be sent unchanged with
-`topic=llm` and `test_fallback=true`. This test path is intentionally separate
-from scheduled delivery, because a static raster cannot carry a new topic's
-content without breaking synchronization.
+The exact reference delivery is intentionally separate from researched-topic
+previews. A static raster set cannot carry a new topic's words without
+breaking synchronization. New-topic rendering remains available manually with
+`reference_lock=false`, but scheduled delivery is locked to the approved
+artwork until a true image-generation/template-editing service is added.
 
 ## Run a safe local test
 
@@ -125,13 +124,12 @@ Open the **Actions** tab and run **vipinislearning approved AI Threads
 carousel** manually with:
 
 1. Any delivery slot.
-2. `topic = llm`.
-3. `test_fallback = true`.
+2. `reference_lock = true`.
 
 This sends the exact approved five-slide reference carousel to the configured
 Gmail address without waiting for live research or the content API. To preview
-the reusable Ref Image template with a topic, run it with `test_fallback=false`
-and choose `topic=agents`, `rag`, `prompting`, or `llm`.
+the renderer with a topic, run it with `reference_lock=false` and choose
+`topic=agents`, `rag`, `prompting`, or `llm`.
 
 ## Required GitHub secrets
 
