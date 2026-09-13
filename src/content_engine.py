@@ -22,6 +22,21 @@ CTA_BY_TOPIC = {
     "llm": "Compare the task, not the hype.",
     "agents": "Give the agent a boundary.",
 }
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RULEBOOK_PATH = os.path.join(ROOT, "config", "viral_carousel_rules.json")
+
+
+def _load_rulebook() -> dict:
+    try:
+        with open(RULEBOOK_PATH, encoding="utf-8") as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else {}
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("Could not load viral carousel rulebook: %s", exc)
+        return {}
+
+
+RULEBOOK = _load_rulebook()
 
 _SYSTEM_PROMPT = """You are the content engine for vipinislearning.
 Create technical AI education for Threads in very simple English.
@@ -40,6 +55,15 @@ URL: {url}
 RESEARCH CONTEXT:
 {context}
 
+PUBLIC TREND SIGNALS:
+{signals}
+
+RELATED EVIDENCE:
+{evidence}
+
+VIRAL CAROUSEL RULEBOOK:
+{rulebook}
+
 EDITORIAL RULES:
 - Technical AI only: LLMs, model behavior, prompting, RAG, embeddings, retrieval, agents, evaluation, latency, cost, privacy, or deployment.
 - English only. Explain jargon in plain language.
@@ -49,6 +73,10 @@ EDITORIAL RULES:
 - For a new model/provider release, compare task fit and trade-offs; never declare one permanent winner.
 - Keep titles short enough for a portrait graphic: max 9 words. Keep body text under 30 words per slide.
 - Include a source label in the JSON, not a link dump in the Threads post.
+- Follow the rulebook's curiosity -> tension -> insight -> payoff arc. Do not
+  label the arc in the artwork; express it through the copy.
+- Use the researched topic as the reason for the post, but teach a durable
+  technical lesson so the carousel remains useful after the news cycle.
 
 Return exactly:
 {{
@@ -100,6 +128,9 @@ def _fallback(topic_key: str, candidate: dict | None) -> dict:
         topic["source"] = f"Source: {candidate['source']} — {candidate['url']}"
         topic["research_title"] = candidate["title"]
         topic["research_context"] = candidate.get("context", "")[:500]
+        topic["trend_score"] = candidate.get("trend_score")
+        topic["research_signals"] = candidate.get("signals", [])
+        topic["evidence"] = candidate.get("evidence", [])
     topic["generation_mode"] = "approved-local-fallback"
     return topic
 
@@ -128,6 +159,16 @@ def generate_content(candidate: dict | None, topic_key: str, force_fallback: boo
         source=candidate.get("source", "Unknown source"),
         url=candidate.get("url", ""),
         context=(candidate.get("context") or "")[:7_000] or "Only the headline and source URL are available.",
+        signals=json.dumps({
+            "trend_score": candidate.get("trend_score"),
+            "sources": candidate.get("signals", []),
+            "engagement_proxy": {
+                "score": candidate.get("score", 0),
+                "comments": candidate.get("comments", 0),
+            },
+        }, ensure_ascii=False),
+        evidence=json.dumps(candidate.get("evidence", []), ensure_ascii=False),
+        rulebook=json.dumps(RULEBOOK, ensure_ascii=False),
     )
     try:
         response = Groq(api_key=api_key).chat.completions.create(
@@ -150,6 +191,9 @@ def generate_content(candidate: dict | None, topic_key: str, force_fallback: boo
         data["series"] = str(data.get("series") or fallback["series"]).upper()[:32]
         data["source"] = f"Source: {candidate['source']} — {candidate['url']}"
         data["research_title"] = candidate["title"]
+        data["trend_score"] = candidate.get("trend_score")
+        data["research_signals"] = candidate.get("signals", [])
+        data["evidence"] = candidate.get("evidence", [])
         data["generation_mode"] = "groq-validated"
         data["topic_key"] = topic_key
         data["highlights"] = [

@@ -1,0 +1,31 @@
+{
+  "purpose": "Runtime editorial and visual rulebook for vipinislearning technical AI carousels.",
+  "story_arc": ["curiosity", "tension", "insight", "payoff"],
+  "attention_rhythm": ["big hook", "small bold mechanism", "quiet practical detail"],
+  "content_rules": [
+    "Technical AI only; explain one mechanism, diagnostic, comparison, or workflow in plain English.",
+    "English only.",
+    "The Threads post has exactly three short lines: hook, simple explanation, and action line with 2-4 hashtags.",
+    "The post and all five slides must tell one story and use the same hook, mechanism, and payoff.",
+    "Slide 1 must create a curiosity gap that makes the reader want the next slide.",
+    "Every slide has one idea and makes the next slide useful or necessary.",
+    "Use a unique practical perspective instead of generic AI commentary.",
+    "Current model, provider, pricing, benchmark, or release claims require dated evidence and official sources.",
+    "For model comparisons, compare task fit and trade-offs; never claim a permanent winner."
+  ],
+  "visual_rules": [
+    "Use the approved Ref Image handwritten marker language.",
+    "Use one visual focus at a time: big, then small bold, then quiet.",
+    "Use cream paper, thick black handwritten type, rough yellow highlights, pastel cards, doodle icons, blue bird mascot, pink takeaway banner, and black CTA panel.",
+    "Keep titles short and body copy readable on a portrait PNG."
+  ],
+  "preflight": [
+    "Does slide 1 create curiosity?",
+    "Does every slide have exactly one idea?",
+    "Is there a unique perspective or useful action?",
+    "Does every slide make the reader want to swipe?",
+    "Is the CTA connected to the content?",
+    "Do the caption, keywords, and carousel use the same story?"
+  ],
+  "default_cta": "If this changes how you think about content, save it before your next post."
+}

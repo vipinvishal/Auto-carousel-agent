@@ -62,6 +62,9 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
+      - name: Load carousel skill rules
+        run: python -c "import json; data=json.load(open('config/viral_carousel_rules.json')); assert data['story_arc'] == ['curiosity', 'tension', 'insight', 'payoff']; print('Viral carousel rulebook loaded')"
+
       - name: Resolve delivery slot
         id: slot
         shell: bash
@@ -79,12 +82,9 @@ jobs:
               *) echo "Unexpected schedule: ${{ github.event.schedule }}"; exit 1 ;;
             esac
             echo "slot=$slot" >> "$GITHUB_OUTPUT"
-            # Scheduled delivery copies the owner's approved Ref Image PNGs
-            # unchanged. This guarantees the email contains the exact
-            # hand-lettered artwork instead of a renderer approximation.
             echo "fallback=false" >> "$GITHUB_OUTPUT"
-            echo "reference=true" >> "$GITHUB_OUTPUT"
-            echo "topic=reference" >> "$GITHUB_OUTPUT"
+            echo "reference=false" >> "$GITHUB_OUTPUT"
+            echo "topic=auto" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Generate, validate, and email package

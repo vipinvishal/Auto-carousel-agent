@@ -8,10 +8,14 @@ traced back to the selected URL.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import timezone
+from email.utils import parsedate_to_datetime
+from xml.etree import ElementTree
 
 import requests
 from bs4 import BeautifulSoup
@@ -24,6 +28,11 @@ _HEADERS = {
     "Accept": "application/json,text/html;q=0.9,*/*;q=0.8",
 }
 _SUBREDDITS = ("artificial", "MachineLearning", "AITools", "LocalLLaMA")
+_GOOGLE_NEWS_QUERIES = (
+    '"AI agent" OR "LLM" developer',
+    '"large language model" release',
+    'RAG OR embeddings OR "context window"',
+)
 _CUTOFF_SECONDS = 72 * 60 * 60
 _MAX_CONTEXT = 7_000
 
@@ -66,6 +75,16 @@ def _get_json(url: str, timeout: int = 12) -> object | None:
         return None
 
 
+def _get_text(url: str, params: dict[str, str] | None = None, timeout: int = 15) -> str:
+    try:
+        response = requests.get(url, params=params, headers={**_HEADERS, "Accept": "application/rss+xml,application/xml,text/html"}, timeout=timeout)
+        response.raise_for_status()
+        return response.text
+    except Exception as exc:
+        logger.debug("Research request failed for %s: %s", url, exc)
+        return ""
+
+
 def _story_score(title: str, score: int, url: str, created: float) -> float:
     age_hours = max(0.0, (time.time() - created) / 3600.0)
     freshness = max(0.0, 72.0 - age_hours) / 12.0
@@ -91,6 +110,7 @@ def _hn_item(story_id: int, cutoff: float) -> dict | None:
         "url": url,
         "source": "Hacker News",
         "score": int(item.get("score", 0) or 0),
+        "comments": len(item.get("kids", []) or []),
         "created": created,
         "hn_kids": list(item.get("kids", []))[:12],
     }
@@ -118,26 +138,72 @@ def _fetch_reddit() -> list[dict]:
     cutoff = time.time() - _CUTOFF_SECONDS
     stories: list[dict] = []
     for subreddit in _SUBREDDITS:
-        payload = _get_json(f"https://www.reddit.com/r/{subreddit}/new.json?limit=40", timeout=12)
-        if not isinstance(payload, dict):
-            continue
-        for child in payload.get("data", {}).get("children", []):
-            post = child.get("data", {})
-            created = float(post.get("created_utc", 0) or 0)
-            title = str(post.get("title", "")).strip()
-            if created < cutoff or not title or not _is_technical_ai(title):
+        for listing in (f"top.json?t=day&limit=40", f"hot.json?limit=40"):
+            payload = _get_json(f"https://www.reddit.com/r/{subreddit}/{listing}", timeout=12)
+            if not isinstance(payload, dict):
                 continue
-            url = str(post.get("url") or "")
-            if not url or "reddit.com" in url:
-                url = f"https://www.reddit.com{post.get('permalink', '')}"
+            for child in payload.get("data", {}).get("children", []):
+                post = child.get("data", {})
+                created = float(post.get("created_utc", 0) or 0)
+                title = str(post.get("title", "")).strip()
+                if created < cutoff or not title or not _is_technical_ai(title):
+                    continue
+                url = str(post.get("url") or "")
+                if not url or "reddit.com" in url:
+                    url = f"https://www.reddit.com{post.get('permalink', '')}"
+                stories.append({
+                    "id": f"reddit:{post.get('id', '')}",
+                    "title": title,
+                    "url": url,
+                    "source": f"Reddit r/{subreddit}",
+                    "score": int(post.get("score", 0) or 0),
+                    "comments": int(post.get("num_comments", 0) or 0),
+                    "created": created,
+                    "selftext": str(post.get("selftext", "")),
+                })
+    return stories
+
+
+def _fetch_google_news() -> list[dict]:
+    """Use Google News RSS for fresh coverage and cross-source recurrence."""
+    cutoff = time.time() - _CUTOFF_SECONDS
+    stories: list[dict] = []
+    for query in _GOOGLE_NEWS_QUERIES:
+        xml = _get_text(
+            "https://news.google.com/rss/search",
+            params={"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"},
+            timeout=15,
+        )
+        if not xml:
+            continue
+        try:
+            root = ElementTree.fromstring(xml)
+        except ElementTree.ParseError:
+            continue
+        for item in root.findall("./channel/item")[:30]:
+            title = str(item.findtext("title") or "").strip()
+            link = str(item.findtext("link") or "").strip()
+            published = str(item.findtext("pubDate") or "").strip()
+            if not title or not link or not _is_technical_ai(title):
+                continue
+            try:
+                created = parsedate_to_datetime(published).astimezone(timezone.utc).timestamp()
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if created < cutoff:
+                continue
+            stable_key = f"{title}\n{link}"
             stories.append({
-                "id": f"reddit:{post.get('id', '')}",
+                # Stable across Python processes so evidence can be compared
+                # reliably in logs and package metadata.
+                "id": f"news:{hashlib.sha1(stable_key.encode('utf-8')).hexdigest()[:16]}",
                 "title": title,
-                "url": url,
-                "source": f"Reddit r/{subreddit}",
-                "score": int(post.get("score", 0) or 0),
+                "url": link,
+                "source": "Google News",
+                "score": 8,
+                "comments": 0,
                 "created": created,
-                "selftext": str(post.get("selftext", "")),
+                "selftext": "",
             })
     return stories
 
@@ -182,25 +248,68 @@ def classify_topic(title: str) -> str:
 
 
 def choose_candidate(day, slot: str) -> dict | None:
-    """Return a different high-value candidate for each daily slot when possible."""
-    stories = _fetch_hn() + _fetch_reddit()
+    """Return a high-signal candidate for each daily slot when possible.
+
+    The rank combines freshness, public engagement, source quality, technical
+    specificity, and recurrence across HN/Reddit/Google News. It is a public
+    trend proxy, not a claim about private platform view counts.
+    """
+    stories = _fetch_hn() + _fetch_reddit() + _fetch_google_news()
     deduped: dict[str, dict] = {}
     for story in stories:
         key = re.sub(r"[^a-z0-9]+", " ", story["title"].lower()).strip()
-        deduped.setdefault(key, story)
+        existing = deduped.get(key)
+        if not existing:
+            story = dict(story)
+            story["signal_count"] = 1
+            story["signals"] = [story["source"]]
+            deduped[key] = story
+            continue
+        signals = existing.setdefault("signals", [])
+        if story["source"] not in signals:
+            signals.append(story["source"])
+        existing["signal_count"] = len(signals)
+        existing["score"] = max(int(existing.get("score", 0)), int(story.get("score", 0)))
+        existing["comments"] = max(int(existing.get("comments", 0)), int(story.get("comments", 0)))
+        existing["created"] = max(float(existing.get("created", 0)), float(story.get("created", 0)))
     ranked = sorted(
         deduped.values(),
-        key=lambda story: _story_score(story["title"], story["score"], story["url"], story["created"]),
+        key=lambda story: (
+            _story_score(story["title"], story["score"] + min(120, story.get("comments", 0) * 2), story["url"], story["created"])
+            + min(18.0, (story.get("signal_count", 1) - 1) * 6.0)
+        ),
         reverse=True,
     )
     if not ranked:
         logger.warning("No recent technical AI stories found")
         return None
     slot_index = ("0900", "1200", "1700").index(slot)
-    candidate = ranked[(day.toordinal() + slot_index) % min(len(ranked), 8)]
+    # Use the top three distinct high-signal stories across the three slots;
+    # do not rotate into arbitrary lower-ranked content just to force variety.
+    candidate = ranked[slot_index % min(len(ranked), 8)]
     candidate = dict(candidate)
     candidate["context"] = _scrape_context(candidate)
     candidate["topic_key"] = classify_topic(candidate["title"])
+    candidate["trend_score"] = round(
+        _story_score(candidate["title"], candidate["score"] + min(120, candidate.get("comments", 0) * 2), candidate["url"], candidate["created"])
+        + min(18.0, (candidate.get("signal_count", 1) - 1) * 6.0),
+        2,
+    )
+    candidate["evidence"] = [
+        {"title": candidate["title"], "source": candidate["source"], "url": candidate["url"]}
+    ]
+    for related in ranked:
+        if related.get("id") == candidate.get("id"):
+            continue
+        candidate["evidence"].append({"title": related["title"], "source": related["source"], "url": related["url"]})
+        if len(candidate["evidence"]) >= 4:
+            break
     candidate.pop("hn_kids", None)
-    logger.info("Selected %s: %s", candidate["source"], candidate["title"])
+    logger.info(
+        "Selected %s: %s (trend_score=%s; signals=%s)",
+        candidate["source"],
+        candidate["title"],
+        candidate["trend_score"],
+        ", ".join(candidate.get("signals", [])),
+    )
     return candidate

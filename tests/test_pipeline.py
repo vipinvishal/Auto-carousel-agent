@@ -3,6 +3,7 @@ import sys
 import unittest
 from datetime import date
 from pathlib import Path
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -22,7 +23,6 @@ from renderer import (  # noqa: E402
     MASCOT_PATH,
     OUTPUT_SIZE,
     REFERENCE_STYLE_DIR,
-    REFERENCE_STYLE_DIR,
     VISUAL_TEMPLATE,
 )
 
@@ -35,6 +35,47 @@ class PipelineTests(unittest.TestCase):
         self.assertFalse(research._is_technical_ai("Show HN: Hacker News, without AI"))
         self.assertTrue(research._is_technical_ai("New AI model adds structured tool calling"))
 
+    @patch.object(research, "_scrape_context", return_value="A technical explanation from the selected source.")
+    @patch.object(research, "_fetch_google_news")
+    @patch.object(research, "_fetch_reddit")
+    @patch.object(research, "_fetch_hn")
+    def test_research_selects_high_signal_story_and_keeps_evidence(self, fetch_hn, fetch_reddit, fetch_news, scrape):
+        now = research.time.time()
+        fetch_hn.return_value = [{
+            "id": "hn:1",
+            "title": "New AI model adds structured tool calling",
+            "url": "https://example.com/model",
+            "source": "Hacker News",
+            "score": 80,
+            "comments": 20,
+            "created": now,
+        }]
+        fetch_reddit.return_value = [{
+            "id": "reddit:1",
+            "title": "New AI model adds structured tool calling",
+            "url": "https://reddit.com/r/artificial/1",
+            "source": "Reddit r/artificial",
+            "score": 40,
+            "comments": 12,
+            "created": now,
+        }]
+        fetch_news.return_value = [{
+            "id": "news:1",
+            "title": "New AI model adds structured tool calling",
+            "url": "https://blog.google/ai/model",
+            "source": "Google News",
+            "score": 8,
+            "comments": 0,
+            "created": now,
+        }]
+        candidate = research.choose_candidate(date(2026, 9, 13), "0900")
+        self.assertEqual(candidate["title"], "New AI model adds structured tool calling")
+        self.assertEqual(candidate["signal_count"], 3)
+        self.assertEqual(len(candidate["signals"]), 3)
+        self.assertGreater(candidate["trend_score"], 0)
+        self.assertEqual(len(candidate["evidence"]), 1)
+        scrape.assert_called_once()
+
     def test_approved_fallback_builds_five_synchronized_pngs(self):
         folder, package, slides = automation.build_package(
             date(2099, 1, 1), "0900", "rag", force_fallback=True
@@ -45,6 +86,8 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(len(package["post_lines"]), 3)
         self.assertIn("#", package["post_lines"][2])
         self.assertFalse(package["manual_review_required"])
+        self.assertEqual(package["pipeline_steps"][0], "topic_research")
+        self.assertEqual(package["pipeline_steps"][-1], "gmail_delivery")
         self.assertEqual(package["visual_template"], VISUAL_TEMPLATE)
         with Image.open(slides[0]) as image:
             self.assertEqual(image.size, OUTPUT_SIZE)
@@ -58,6 +101,10 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(len(topic["slides"]), 5)
         self.assertIn("#", topic["post_lines"][2])
         self.assertTrue(topic["cta"])
+
+    def test_viral_rulebook_is_loaded_by_content_engine(self):
+        self.assertEqual(content_engine.RULEBOOK["story_arc"], ["curiosity", "tension", "insight", "payoff"])
+        self.assertIn("one idea", " ".join(content_engine.RULEBOOK["content_rules"]).lower())
 
     def test_llm_fallback_uses_exact_approved_reference_pngs(self):
         folder, package, slides = automation.build_package(

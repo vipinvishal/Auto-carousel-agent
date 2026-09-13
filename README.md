@@ -35,9 +35,9 @@ automation in the cloud.
 
 | India time | What happens |
 |---|---|
-| 9:00 AM IST | Exact approved Ref Image carousel |
-| 12:00 PM IST | Exact approved Ref Image carousel |
-| 5:00 PM IST | Exact approved Ref Image carousel |
+| 9:00 AM IST | Fresh researched technical AI carousel |
+| 12:00 PM IST | Fresh researched technical AI carousel |
+| 5:00 PM IST | Fresh researched technical AI carousel |
 
 GitHub uses UTC internally, so the workflow uses `03:30`, `06:30`, and `11:30`
 UTC for these three India-time deliveries.
@@ -49,14 +49,27 @@ UTC for these three India-time deliveries.
 
 ```mermaid
 flowchart LR
-    A[Find a useful technical AI topic] --> B[Explain it in plain English]
-    B --> C[Create 5 synchronized PNG slides]
-    C --> D[Validate text, size, and order]
-    D --> E[Email the package]
+    A[Research public AI signals] --> B[Gather source evidence]
+    B --> C[Apply the viral carousel rulebook]
+    C --> D[Curate one synced story]
+    D --> E[Render 5 PNGs]
+    E --> F[Validate and email]
 ```
 
-The post and the carousel are created together. The hook, explanation, and
-takeaway are never generated as separate stories.
+The scheduled job follows this exact order:
+
+1. Research fresh technical AI conversations from Hacker News, Reddit, and Google News.
+2. Rank them using recency, technical relevance, public engagement signals, source quality, and recurrence across sources.
+3. Gather the selected article or discussion context plus related evidence.
+4. Apply `config/viral_carousel_rules.json`, which encodes the approved local `viral-ai-carousel` skill: curiosity → tension → insight → payoff; one idea per slide; and a connected CTA.
+5. Curate the three-line Threads post and five-slide story together.
+6. Generate portrait PNGs in the approved handwritten Ref Image visual system.
+7. Validate dimensions, file type, slide count, hashtags, source metadata, and synchronization before Gmail delivery.
+
+“Viral” is treated honestly as a public-signal proxy. The workflow cannot see
+private Threads or social-platform view counts, so it never pretends that a
+story has the maximum views; it selects topics with fresh, repeated, and
+engaged public attention instead.
 
 ## What arrives in the email
 
@@ -92,18 +105,23 @@ For model releases, the content focuses on task fit and trade-offs—not a
 permanent “best model” claim. Current claims are tied to research sources and
 dated comparisons.
 
-## Image behavior: exact approved reference delivery
+## Image behavior: approved reference system
 
 The eight-image Ref Image library is stored in
 `assets/approved/reference-style/` and is the permanent visual source of truth.
-Scheduled emails copy the first five approved PNGs byte-for-byte, so the email
-cannot silently send the old renderer style.
+Scheduled emails use this library's visual rules, so fresh content cannot
+silently switch back to the old renderer style.
 
-The exact reference delivery is intentionally separate from researched-topic
-previews. A static raster set cannot carry a new topic's words without
-breaking synchronization. New-topic rendering remains available manually with
-`reference_lock=false`, but scheduled delivery is locked to the approved
-artwork until a true image-generation/template-editing service is added.
+Scheduled fresh topics use the deterministic renderer with the approved
+handwritten visual system: cream paper, marker lettering, rough yellow
+highlights, pastel technical cards, doodle icons, blue bird mascot, pink
+takeaway banner, and black CTA panel. This keeps new words synchronized with
+new illustrations while avoiding the old rounded UI/card style.
+
+The exact raster references remain available through the manual
+`reference_lock=true` option. That mode copies the approved PNGs byte-for-byte
+and is useful as a golden visual test; it is not used for scheduled fresh
+topics because fixed words cannot explain a newly researched topic.
 
 ## Run a safe local test
 
@@ -124,12 +142,13 @@ Open the **Actions** tab and run **vipinislearning approved AI Threads
 carousel** manually with:
 
 1. Any delivery slot.
-2. `reference_lock = true`.
+2. `reference_lock = true` for an exact approved-image email, or leave it false
+   and choose `topic=auto` to test live research, content generation, rendering,
+   and Gmail delivery together.
 
-This sends the exact approved five-slide reference carousel to the configured
-Gmail address without waiting for live research or the content API. To preview
-the renderer with a topic, run it with `reference_lock=false` and choose
-`topic=agents`, `rag`, `prompting`, or `llm`.
+The workflow always emails the package to the configured Gmail address. If the
+content API is unavailable, the local evergreen fallback keeps the scheduled
+delivery working.
 
 ## Required GitHub secrets
 
@@ -147,14 +166,14 @@ email pipeline working.
 
 ```text
 src/automation.py       Build, validate, and send one package
-src/research.py         Find and rank recent technical AI topics
+src/research.py         Find, rank, and gather recent technical AI topics
 src/content_engine.py   Create synchronized three-line copy and slide copy
 src/renderer.py          Render the approved five-slide visual system
 src/emailer.py           Attach PNGs and send the Gmail message
 assets/approved/         Mascot and approved reference carousel
 assets/approved/reference-style/
                          Permanent visual reference library
-config/                  Brand, editorial, and LLM comparison rules
+config/                  Brand, editorial, LLM, and viral-carousel rules
 tests/                   Renderer, schedule, asset, and validation checks
 ```
 
