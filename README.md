@@ -184,7 +184,7 @@ These secrets must be configured in the repository and are never committed:
 | `GMAIL_APP_PASSWORD` | Sends the email through Gmail SMTP |
 | `OPENROUTER_API_KEY` | Uses `openrouter/free` to curate live researched technical-AI copy |
 | `EXA_API_KEY` | Finds current, source-grounded technical-AI research before writing starts |
-| `GEMINI_API_KEY` | Generates all five PNGs from three approved reference images per slide |
+| `GEMINI_API_KEY` | Generates five reference-conditioned images; the workflow converts them to PNG attachments |
 
 There is intentionally no low-quality fallback: a missing or failed live-copy
 or image-model call stops the email.

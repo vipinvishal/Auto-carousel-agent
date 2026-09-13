@@ -128,7 +128,9 @@ def generate_slide(topic: dict, slide_no: int, destination: Path) -> None:
         json={
             "model": MODEL,
             "input": [{"type": "text", "text": build_prompt(topic, slide_no)}, *image_inputs],
-            "response_format": {"type": "image", "mime_type": "image/png", "aspect_ratio": "4:5"},
+            # Gemini's Interactions endpoint currently returns JPEG image
+            # blocks. _save_result converts them to the required final PNG.
+            "response_format": {"type": "image", "mime_type": "image/jpeg", "aspect_ratio": "4:5"},
         },
         timeout=240,
     )
