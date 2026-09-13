@@ -16,6 +16,11 @@
 
 <p align="center"><em>The approved visual direction: bold hook, simple diagram, useful takeaway, blue bird, and a clear CTA.</em></p>
 
+The permanent visual reference library is kept in
+[`assets/approved/reference-style/`](assets/approved/reference-style/). It is a
+copied, version-controlled backup of the owner's `Ref Image` directory, so
+future changes can be checked against the agreed hand-drawn look.
+
 ## What this project does
 
 This project creates a complete Threads post for `vipinislearning` and emails
@@ -146,6 +151,8 @@ src/content_engine.py   Create synchronized three-line copy and slide copy
 src/renderer.py          Render the approved five-slide visual system
 src/emailer.py           Attach PNGs and send the Gmail message
 assets/approved/         Mascot and approved reference carousel
+assets/approved/reference-style/
+                         Permanent visual reference library
 config/                  Brand, editorial, and LLM comparison rules
 tests/                   Renderer, schedule, asset, and validation checks
 ```

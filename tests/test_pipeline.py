@@ -21,6 +21,7 @@ from renderer import (  # noqa: E402
     FONT_HAND_BOLD,
     H,
     MASCOT_PATH,
+    REFERENCE_STYLE_DIR,
     VISUAL_TEMPLATE,
     W,
 )
@@ -74,6 +75,7 @@ class PipelineTests(unittest.TestCase):
             self.assertTrue(Path(font_path).exists(), font_path)
         self.assertTrue(MASCOT_PATH.exists())
         self.assertEqual(len(list(APPROVED_REFERENCE_DIR.glob("slide-*.png"))), 5)
+        self.assertEqual(len(list(REFERENCE_STYLE_DIR.glob("*.png"))), 8)
 
 
 if __name__ == "__main__":

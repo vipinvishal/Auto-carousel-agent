@@ -24,6 +24,10 @@ FONT_BODY = str(FONT_DIR / "NunitoSans-Regular.ttf")
 FONT_BODY_BOLD = str(FONT_DIR / "NunitoSans-Bold.ttf")
 MASCOT_PATH = ROOT / "assets/approved/blue-bird-mascot.png"
 APPROVED_REFERENCE_DIR = ROOT / "assets/approved/reference-carousel"
+# Permanent visual source of truth supplied by the owner. These images define
+# the approved hand-drawn composition, mascot treatment, marker lettering,
+# brush highlights, pastel cards, and CTA style for all future work.
+REFERENCE_STYLE_DIR = ROOT / "assets/approved/reference-style"
 VISUAL_TEMPLATE = "approved-reference-carousel-v3"
 
 COLORS = {
