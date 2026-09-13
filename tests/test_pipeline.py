@@ -154,6 +154,19 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(post.call_args.kwargs["json"]["max_tokens"], 8000)
         self.assertEqual(post.call_args.kwargs["json"]["reasoning"], {"exclude": True})
 
+    @patch.object(content_engine, "_call_content_model", return_value=({"post_lines": []}, "openrouter"))
+    def test_invalid_free_model_schema_uses_exa_grounded_template(self, _call):
+        candidate = {
+            "title": "New agent release",
+            "source": "Exa",
+            "url": "https://example.com/agent",
+            "signals": ["Exa"],
+        }
+        data = content_engine.generate_content(candidate, "agents")
+        self.assertEqual(data["generation_mode"], "exa-grounded-verified-template-fallback")
+        self.assertEqual(data["research_title"], "New agent release")
+        self.assertEqual(len(data["slides"]), 5)
+
     def test_viral_rulebook_is_loaded_by_content_engine(self):
         self.assertEqual(content_engine.RULEBOOK["story_arc"], ["curiosity", "tension", "insight", "payoff"])
         self.assertIn("one idea", " ".join(content_engine.RULEBOOK["content_rules"]).lower())

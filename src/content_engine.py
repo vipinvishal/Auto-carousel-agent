@@ -285,4 +285,15 @@ def generate_content(candidate: dict | None, topic_key: str, force_fallback: boo
         ]
         return data
     except Exception as exc:
-        raise RuntimeError(f"Live content generation failed; stopping before Gmail delivery: {exc}") from exc
+        # Free models can occasionally return a syntactically valid but
+        # incomplete schema. Preserve delivery reliability without inventing a
+        # current claim: use the selected Exa source as metadata and a vetted,
+        # topic-matched technical lesson whose post and five slides are locked
+        # to the same story.
+        logger.warning(
+            "OpenRouter copy did not meet the carousel contract; using the "
+            "Exa-grounded verified topic template: %s",
+            exc,
+        )
+        fallback["generation_mode"] = "exa-grounded-verified-template-fallback"
+        return fallback
