@@ -112,11 +112,22 @@ The eight-image Ref Image library is stored in
 Scheduled emails use this library's visual rules, so fresh content cannot
 silently switch back to the old renderer style.
 
-Scheduled fresh topics use the deterministic renderer with the approved
-handwritten visual system: cream paper, marker lettering, rough yellow
-highlights, pastel technical cards, doodle icons, blue bird mascot, pink
-takeaway banner, and black CTA panel. This keeps new words synchronized with
-new illustrations while avoiding the old rounded UI/card style.
+Scheduled fresh topics use the deterministic `ref-image-handwritten-v2`
+template. Its five layouts are deliberately taken from the reference library:
+
+1. Curiosity cover — oversized hook, one highlighted phrase, large mascot,
+   compact doodle grid, and swipe cue.
+2. Tension/mechanism — one four-part technical flow and a pink note.
+3. Insight — one four-part flow and an outlined speech bubble.
+4. Application — one four-part flow and a practical pink note.
+5. Payoff — checklist, large mascot, connected save prompt, and the only black
+   CTA panel in the carousel.
+
+The locked specification is stored in
+[`config/ref_image_template.json`](config/ref_image_template.json). It forbids
+the retired sparse SaaS-card layout, tiny mascot, slide counter, dashboard
+header, and repeated black CTA. New words and doodles change with the researched
+topic; the visual grammar does not.
 
 The exact raster references remain available through the manual
 `reference_lock=true` option. That mode copies the approved PNGs byte-for-byte

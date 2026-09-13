@@ -3,14 +3,15 @@
 The reference system is intentionally rasterized with Pillow rather than a
 browser or a local design app. That keeps the five PNGs stable in GitHub
 Actions while preserving the approved cream paper, marker type, brush bands,
-pastel cards, doodle icons, mascot, and black CTA composition.
+pastel doodles, oversized mascot, and final-slide CTA composition.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,9 +25,11 @@ M = 74
 
 FONT_DIR = ROOT / "assets/fonts"
 FONT_HAND = str(FONT_DIR / "PatrickHand-Regular.ttf")
-# Ref Image uses a marker-like handwritten voice for every text layer. Keep
-# the old rounded Fredoka headline treatment out of the generated template.
-FONT_HAND_BOLD = FONT_HAND
+# Permanent Marker is an open, bundled brush-marker face used for the large
+# irregular lettering seen throughout Ref Image. Patrick Hand remains the
+# quieter body voice. Both are bundled so GitHub Actions matches local runs.
+FONT_MARKER = str(FONT_DIR / "PermanentMarker-Regular.ttf")
+FONT_HAND_BOLD = FONT_MARKER
 FONT_BODY = str(FONT_DIR / "NunitoSans-Regular.ttf")
 FONT_BODY_BOLD = str(FONT_DIR / "NunitoSans-Bold.ttf")
 MASCOT_PATH = ROOT / "assets/approved/blue-bird-mascot.png"
@@ -35,7 +38,9 @@ APPROVED_REFERENCE_DIR = ROOT / "assets/approved/reference-carousel"
 # the approved hand-drawn composition, mascot treatment, marker lettering,
 # brush highlights, pastel cards, and CTA style for all future work.
 REFERENCE_STYLE_DIR = ROOT / "assets/approved/reference-style"
-VISUAL_TEMPLATE = "ref-image-handwritten-v1"
+TEMPLATE_SPEC_PATH = ROOT / "config/ref_image_template.json"
+TEMPLATE_SPEC = json.loads(TEMPLATE_SPEC_PATH.read_text(encoding="utf-8"))
+VISUAL_TEMPLATE = TEMPLATE_SPEC["name"]
 
 COLORS = {
     "paper": "#FAF8F3",
@@ -179,6 +184,17 @@ VISUAL_LABELS = {
 PASTELS = ("purple", "mint", "blue", "orange", "pink", "yellow")
 
 
+def paper_canvas():
+    """Create the warm, softly vignetted paper used by the Ref Image set."""
+    base = Image.new("RGBA", (W, H), COLORS["paper"])
+    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow)
+    glow_draw.ellipse((-180, -120, W + 180, H + 160), fill=(255, 255, 252, 232))
+    glow = glow.filter(ImageFilter.GaussianBlur(95))
+    base.alpha_composite(glow)
+    return base
+
+
 def f(path: str, size: int, index: int = 0):
     font = ImageFont.truetype(path, size, index=index)
     instance = "Bold" if "Bold" in Path(path).name else "Regular"
@@ -244,37 +260,63 @@ def draw_centered(draw, text, center_x, y, font_obj, fill, max_width, gap=8):
     return y + len(lines) * line_height
 
 
-def draw_title(draw, text, highlight, y=112):
-    font = f(FONT_HAND_BOLD, 78)
-    lines = wrap_text(draw, text, font, W - 130)
-    line_height = 84
-    highlight_lower = (highlight or "").lower()
+def _fit_title(draw, text, max_width, max_lines=3, max_size=92, min_size=54):
+    title = str(text).upper()
+    for size in range(max_size, min_size - 1, -2):
+        font = f(FONT_HAND_BOLD, size)
+        lines = wrap_text(draw, title, font, max_width)
+        if len(lines) <= max_lines:
+            return font, lines
+    font = f(FONT_HAND_BOLD, min_size)
+    return font, wrap_text(draw, title, font, max_width)[:max_lines]
+
+
+def draw_title(draw, text, highlight, y=112, max_lines=3):
+    """Draw the oversized brush-marker hero used throughout Ref Image."""
+    font, lines = _fit_title(draw, text, W - 116, max_lines=max_lines)
+    line_height = int(font.size * 1.08)
+    highlight_lower = str(highlight or "").lower().strip()
+    highlighted = False
     for index, line in enumerate(lines):
         line_y = y + index * line_height
         lower = line.lower()
         start = lower.find(highlight_lower) if highlight_lower else -1
-        if start >= 0:
-            prefix = line[:start]
-            fragment = line[start:start + len(highlight)]
-            prefix_w = draw.textbbox((0, 0), prefix, font=font)[2]
-            fragment_w = draw.textbbox((0, 0), fragment, font=font)[2]
-            left = (W - draw.textbbox((0, 0), line, font=font)[2]) // 2
-            brush_rect(draw, (left + prefix_w - 16, line_y + 10, left + prefix_w + fragment_w + 16, line_y + 76), COLORS["yellow"], 28)
-        left = (W - draw.textbbox((0, 0), line, font=font)[2]) // 2
+        if start < 0 and index == len(lines) - 1 and not highlighted:
+            start = 0
+            fragment = line
+        elif start >= 0:
+            fragment = line[start:start + len(highlight_lower)]
+        else:
+            fragment = ""
+        line_width = draw.textbbox((0, 0), line, font=font)[2]
+        left = (W - line_width) // 2
+        if fragment:
+            prefix_width = draw.textbbox((0, 0), line[:start], font=font)[2]
+            fragment_width = draw.textbbox((0, 0), fragment, font=font)[2]
+            brush_rect(
+                draw,
+                (
+                    left + prefix_width - 20,
+                    line_y + int(font.size * 0.16),
+                    left + prefix_width + fragment_width + 20,
+                    line_y + int(font.size * 0.94),
+                ),
+                COLORS["yellow"],
+                30,
+            )
+            highlighted = True
         draw.text(
             (left, line_y),
             line,
             font=font,
             fill=COLORS["ink"],
-            stroke_width=3,
+            stroke_width=2,
             stroke_fill=COLORS["ink"],
         )
-        if start >= 0:
-            prefix_w = draw.textbbox((0, 0), line[:start], font=font)[2]
-            fragment_w = draw.textbbox((0, 0), line[start:start + len(highlight)], font=font)[2]
-            draw.line((left + prefix_w, line_y + 86, left + prefix_w + fragment_w, line_y + 86), fill=COLORS["yellow"], width=8)
-            draw.line((left + prefix_w + 36, line_y + 98, left + prefix_w + fragment_w - 28, line_y + 98), fill=COLORS["yellow"], width=6)
-    return y + max(1, len(lines)) * line_height
+    underline_y = y + len(lines) * line_height + 2
+    draw.line((W * 0.32, underline_y, W * 0.72, underline_y - 4), fill=COLORS["yellow"], width=8)
+    draw.line((W * 0.40, underline_y + 13, W * 0.67, underline_y + 9), fill=COLORS["yellow"], width=5)
+    return underline_y + 18
 
 
 def draw_header(draw, label):
@@ -525,6 +567,88 @@ def draw_bottom(draw, im, topic, slide_no, banner_y, cta_y=None):
     draw_cta(draw, topic.get("ctas", ["Save this."] * 5)[slide_no - 1], (520, cta_y, 1000, min(1305, cta_y + 245)))
 
 
+def topic_visuals(topic, topic_key, slide_no):
+    supplied = topic.get("visuals") or []
+    if len(supplied) >= slide_no and len(supplied[slide_no - 1]) >= 4:
+        return supplied[slide_no - 1][:4]
+    return VISUAL_LABELS.get(topic_key, VISUAL_LABELS["rag"])[slide_no][:4]
+
+
+def draw_ref_card(draw, x, y, w, h, fill, label, icon_kind, label_below=True, show_label=True):
+    draw.rounded_rectangle((x, y, x + w, y + h), 34, fill=fill)
+    draw_rays(draw, x + w // 2, y + int(h * 0.43), COLORS["ink"], count=7, radius=int(min(w, h) * 0.29))
+    draw_icon(draw, icon_kind, x + w // 2, y + int(h * 0.42), 0.72)
+    label_font = f(FONT_HAND_BOLD, 26 if len(str(label)) <= 12 else 22)
+    if not show_label:
+        return
+    if label_below:
+        draw_centered(draw, str(label).upper(), x + w // 2, y + h + 10, label_font, COLORS["ink"], w + 20, gap=0)
+    else:
+        draw_centered(draw, str(label).upper(), x + w // 2, y + h - 46, label_font, COLORS["ink"], w - 18, gap=0)
+
+
+def draw_ref_row(draw, items, y, card_h=205):
+    w, gap, start = 210, 36, 66
+    for index, (label, icon) in enumerate(items[:4]):
+        x = start + index * (w + gap)
+        draw_ref_card(draw, x, y, w, card_h, COLORS[PASTELS[index]], label, icon)
+        if index < 3:
+            draw_arrow(draw, x + w + 6, y + card_h // 2, x + w + gap - 8, y + card_h // 2)
+
+
+def draw_ref_grid(draw, items, x=560, y=650):
+    w, h, gap_x, gap_y = 205, 174, 34, 48
+    for index, (label, icon) in enumerate(items[:4]):
+        xx = x + (index % 2) * (w + gap_x)
+        yy = y + (index // 2) * (h + gap_y)
+        draw_ref_card(
+            draw,
+            xx,
+            yy,
+            w,
+            h,
+            COLORS[PASTELS[index]],
+            label,
+            icon,
+            label_below=False,
+            show_label=False,
+        )
+
+
+def draw_speech_bubble(draw, text, box, outline=COLORS["ink"], fill="#FFFDFC"):
+    x1, y1, x2, y2 = box
+    draw.rounded_rectangle(box, 48, fill=fill, outline=outline, width=5)
+    tail = [(x1 + 84, y2 - 4), (x1 + 48, y2 + 50), (x1 + 142, y2 - 14)]
+    draw.polygon(tail, fill=fill, outline=outline)
+    draw_centered(draw, text, (x1 + x2) // 2, y1 + 46, f(FONT_HAND, 35), COLORS["ink"], x2 - x1 - 70, gap=5)
+
+
+def draw_swipe(draw, text="SWIPE →", x=760, y=1185):
+    font = f(FONT_HAND_BOLD, 42)
+    width = draw.textbbox((0, 0), text, font=font)[2]
+    brush_rect(draw, (x - 24, y - 18, x + width + 30, y + 58), COLORS["yellow"], 30)
+    draw.text((x, y), text, font=font, fill=COLORS["ink"], stroke_width=1, stroke_fill=COLORS["ink"])
+
+
+def draw_note(draw, text, x, y, w=430, color="pink"):
+    font = f(FONT_HAND, 39)
+    lines = wrap_text(draw, text, font, w - 56)
+    height = max(112, len(lines) * 47 + 42)
+    brush_rect(draw, (x, y, x + w, y + height), COLORS[color], 44)
+    draw_centered(draw, text, x + w // 2, y + 25, font, COLORS["ink"], w - 56, gap=5)
+    draw.line((x + 70, y + height + 18, x + w - 60, y + height + 3), fill=COLORS["yellow"], width=7)
+
+
+def draw_final_checklist(draw, items, x=720, y=440):
+    draw.polygon([(x, y), (x + 286, y + 18), (x + 270, y + 268), (x - 18, y + 246)], fill="#FFFDF8", outline=COLORS["ink"])
+    for index, (label, _) in enumerate(items[:4]):
+        yy = y + 48 + index * 48
+        draw.text((x + 30, yy), str(label).title(), font=f(FONT_HAND, 30), fill=COLORS["ink"])
+        draw.ellipse((x + 218, yy - 2, x + 252, yy + 32), fill=COLORS["mint"])
+        draw.line((x + 226, yy + 14, x + 235, yy + 24), fill=COLORS["ink"], width=4)
+        draw.line((x + 235, yy + 24, x + 246, yy + 7), fill=COLORS["ink"], width=4)
+
+
 def draw_four_cards(draw, topic_key, slide_no, y, h=265, label_band=False):
     items = VISUAL_LABELS.get(topic_key, VISUAL_LABELS["rag"])[slide_no]
     w, gap, start = 228, 24, 30
@@ -588,44 +712,53 @@ def render_slide(slide_no, total, topic, out_path):
         label, title, body = slide
     highlight = (topic.get("highlights") or fallback.get("highlights", [None] * 5))[slide_no - 1]
     banner = (topic.get("banners") or fallback.get("banners", [""] * 5))[slide_no - 1]
-    im = Image.new("RGBA", (W, H), COLORS["paper"])
+    items = topic_visuals(topic, topic_key, slide_no)
+    im = paper_canvas()
     draw = ImageDraw.Draw(im)
     draw_header(draw, str(label).upper()[:28])
-    draw_title(draw, title, highlight, y=112)
+    title_bottom = draw_title(draw, title, highlight, y=112)
+    body_bottom = draw_centered(
+        draw,
+        body,
+        W // 2,
+        title_bottom + 16,
+        f(FONT_HAND, 36),
+        COLORS["ink"],
+        W - 120,
+        gap=4,
+    )
 
     if slide_no == 1:
-        draw_centered(draw, body, W // 2, 468, f(FONT_HAND, 35), COLORS["ink"], W - 130, gap=3)
-        draw_four_cards(draw, topic_key, 1, 565, h=230, label_band=True)
-        draw_banner(draw, banner, 925, 98)
-        draw_bottom(draw, im, topic, slide_no, 1040, 1045)
+        # Ref Image cover: one giant hook, large mascot, 2×2 doodle grid,
+        # and a clear swipe cue. No dashboard header or repeated black CTA.
+        lower_y = max(625, body_bottom + 30)
+        mascot(im, (24, lower_y - 16, 555, 1326))
+        draw_ref_grid(draw, items, x=570, y=lower_y)
+        draw.line((515, lower_y + 160, 568, lower_y + 104), fill=COLORS["ink"], width=6)
+        draw.line((515, lower_y + 160, 560, lower_y + 150), fill=COLORS["ink"], width=6)
+        draw_swipe(draw, x=760, y=1230)
     elif slide_no == 2:
-        draw_centered(draw, body, W // 2, 370, f(FONT_HAND, 35), COLORS["ink"], W - 130, gap=3)
-        draw_two_by_two(draw, topic_key, 2, 440, card_h=235)
-        draw_banner(draw, banner, 962, 96)
-        draw_bottom(draw, im, topic, slide_no, 1050, 1070)
+        row_y = max(565, body_bottom + 44)
+        draw_ref_row(draw, items, row_y)
+        draw_note(draw, banner, 62, 1010, w=470, color="pink")
+        mascot(im, (555, 880, 1055, 1328))
     elif slide_no == 3:
-        draw_centered(draw, body, W // 2, 334, f(FONT_HAND, 35), COLORS["ink"], W - 130, gap=3)
-        draw_two_by_two(draw, topic_key, 3, 442, card_h=235)
-        draw_banner(draw, banner, 962, 96)
-        draw_bottom(draw, im, topic, slide_no, 1050, 1070)
+        row_y = max(560, body_bottom + 42)
+        draw_ref_row(draw, items, row_y)
+        mascot(im, (42, 880, 520, 1328))
+        draw_speech_bubble(draw, banner, (555, 965, 1015, 1165), outline=COLORS["ink"])
     elif slide_no == 4:
-        draw_centered(draw, body, W // 2, 350, f(FONT_HAND, 35), COLORS["ink"], W - 130, gap=3)
-        draw_checklist(draw, topic_key, 455)
-        draw_banner(draw, banner, 995, 96)
-        draw_bottom(draw, im, topic, slide_no, 1080, 1090)
+        row_y = max(565, body_bottom + 42)
+        draw_ref_row(draw, items, row_y)
+        draw_note(draw, banner, 62, 1010, w=470, color="pink")
+        mascot(im, (565, 875, 1055, 1328))
     else:
-        items = VISUAL_LABELS.get(topic_key, VISUAL_LABELS["llm"])[5]
-        w, gap, start = 272, 28, 78
-        for i, (label2, icon) in enumerate(items[:6]):
-            x = start + (i % 3) * (w + gap)
-            y = 410 if i < 3 else 650
-            # Overlay the canonical six-card grid for the final checklist.
-            draw.rounded_rectangle((x, y, x + w, y + 184), 30, fill=COLORS[PASTELS[i]])
-            draw_rays(draw, x + w // 2, y + 78, COLORS["ink"], count=6, radius=62)
-            draw_icon(draw, icon, x + w // 2, y + 78, 0.62)
-            draw_centered(draw, label2, x + w // 2, y + 190, f(FONT_HAND_BOLD, 28), COLORS["ink"], w - 10, gap=0)
-        draw_banner(draw, banner, 875, 94)
-        draw_bottom(draw, im, topic, slide_no, 985, 1015)
+        draw_final_checklist(draw, items, x=735, y=max(430, body_bottom + 34))
+        final_cta = str(topic.get("cta") or "Save this before your next post.")
+        draw_cta(draw, final_cta, (42, 640, 705, 1010))
+        draw.line((110, 1030, 520, 1024), fill=COLORS["pink"], width=9)
+        mascot(im, (635, 690, 1060, 1330))
+        draw_note(draw, banner, 72, 1090, w=520, color="pink")
 
     # Export at the same dimensions as the supplied Ref Image files. The
     # single final resize keeps the layout deterministic and avoids different

@@ -11,11 +11,18 @@ import re
 from groq import Groq
 
 from renderer import TOPICS as FALLBACK_TOPICS
+from renderer import VISUAL_LABELS as FALLBACK_VISUAL_LABELS
 
 logger = logging.getLogger(__name__)
 
 MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 HASHTAGS = ("#AI", "#LLM", "#AIEngineering", "#MachineLearning")
+ICON_TYPES = {
+    "answer", "brain", "chunks", "clock", "code", "coins", "context",
+    "document", "person", "privacy", "provider", "quality", "rules",
+    "search", "speed", "target", "tool", "toolbox", "tools", "warning",
+    "wrong",
+}
 CTA_BY_TOPIC = {
     "rag": "Fix what AI reads first.",
     "prompting": "Make the instruction precise.",
@@ -73,6 +80,11 @@ EDITORIAL RULES:
 - For a new model/provider release, compare task fit and trade-offs; never declare one permanent winner.
 - Keep titles short enough for a portrait graphic: max 9 words. Keep body text under 30 words per slide.
 - Include a source label in the JSON, not a link dump in the Threads post.
+- Every slide must provide one short highlight phrase copied exactly from its title.
+- Every slide must provide four visual labels and an icon type for each. Allowed
+  icon types: answer, brain, chunks, clock, code, coins, context, document,
+  person, privacy, provider, quality, rules, search, speed, target, tools,
+  warning, wrong.
 - Follow the rulebook's curiosity -> tension -> insight -> payoff arc. Do not
   label the arc in the artwork; express it through the copy.
 - Use the researched topic as the reason for the post, but teach a durable
@@ -84,11 +96,11 @@ Return exactly:
   "hook": "the first post line",
   "post_lines": ["hook", "simple explanation", "CTA #AI #LLM"],
   "slides": [
-    {{"series":"AI, SIMPLY","title":"...","body":"..."}},
-    {{"series":"...","title":"...","body":"..."}},
-    {{"series":"...","title":"...","body":"..."}},
-    {{"series":"...","title":"...","body":"..."}},
-    {{"series":"...","title":"...","body":"..."}}
+    {{"series":"AI, SIMPLY","title":"...","highlight":"exact words from title","body":"...","visuals":[{{"label":"...","icon":"target"}},{{"label":"...","icon":"code"}},{{"label":"...","icon":"document"}},{{"label":"...","icon":"tools"}}]}},
+    {{"series":"...","title":"...","highlight":"...","body":"...","visuals":[{{"label":"...","icon":"..."}},{{"label":"...","icon":"..."}},{{"label":"...","icon":"..."}},{{"label":"...","icon":"..."}}]}},
+    {{"series":"...","title":"...","highlight":"...","body":"...","visuals":[{{"label":"...","icon":"..."}},{{"label":"...","icon":"..."}},{{"label":"...","icon":"..."}},{{"label":"...","icon":"..."}}]}},
+    {{"series":"...","title":"...","highlight":"...","body":"...","visuals":[{{"label":"...","icon":"..."}},{{"label":"...","icon":"..."}},{{"label":"...","icon":"..."}},{{"label":"...","icon":"..."}}]}},
+    {{"series":"...","title":"...","highlight":"...","body":"...","visuals":[{{"label":"...","icon":"..."}},{{"label":"...","icon":"..."}},{{"label":"...","icon":"..."}},{{"label":"...","icon":"..."}}]}}
   ],
   "accent": "blue|orange|purple",
   "source": "short source note"
@@ -119,11 +131,30 @@ def _normalize_post(lines: object, fallback: list[str]) -> list[str]:
     return normalized
 
 
+def _normalize_visuals(raw: object, topic_key: str, slide_no: int) -> list[tuple[str, str]]:
+    fallback = FALLBACK_VISUAL_LABELS.get(topic_key, FALLBACK_VISUAL_LABELS["rag"])[slide_no]
+    if not isinstance(raw, list):
+        return list(fallback[:4])
+    normalized: list[tuple[str, str]] = []
+    for item in raw[:4]:
+        if not isinstance(item, dict):
+            continue
+        label = re.sub(r"\s+", " ", str(item.get("label", ""))).strip().upper()[:22]
+        icon = str(item.get("icon", "target")).strip().lower()
+        if label and icon in ICON_TYPES:
+            normalized.append((label, icon))
+    return normalized if len(normalized) == 4 else list(fallback[:4])
+
+
 def _fallback(topic_key: str, candidate: dict | None) -> dict:
     topic = copy.deepcopy(FALLBACK_TOPICS.get(topic_key, FALLBACK_TOPICS["rag"]))
     topic["topic_key"] = topic_key
     topic["post_lines"] = topic.pop("post")
-    topic["cta"] = CTA_BY_TOPIC.get(topic_key, CTA_BY_TOPIC["rag"])
+    topic["cta"] = re.sub(r"\s*#[A-Za-z0-9_]+", "", topic["post_lines"][2]).strip()
+    topic["visuals"] = [
+        list(FALLBACK_VISUAL_LABELS.get(topic_key, FALLBACK_VISUAL_LABELS["rag"])[slide_no][:4])
+        for slide_no in range(1, 6)
+    ]
     if candidate:
         topic["source"] = f"Source: {candidate['source']} — {candidate['url']}"
         topic["research_title"] = candidate["title"]
@@ -200,7 +231,11 @@ def generate_content(candidate: dict | None, topic_key: str, force_fallback: boo
             str(slide.get("highlight") or fallback["highlights"][index])
             for index, slide in enumerate(data["slides"])
         ]
-        data["cta"] = CTA_BY_TOPIC.get(topic_key, CTA_BY_TOPIC["rag"])
+        data["visuals"] = [
+            _normalize_visuals(slide.get("visuals"), topic_key, index + 1)
+            for index, slide in enumerate(data["slides"])
+        ]
+        data["cta"] = re.sub(r"\s*#[A-Za-z0-9_]+", "", data["post_lines"][2]).strip()
         data["slides"] = [
             (str(slide.get("series") or data["series"])[:32], str(slide["title"]).strip(), str(slide["body"]).strip())
             for slide in data["slides"]

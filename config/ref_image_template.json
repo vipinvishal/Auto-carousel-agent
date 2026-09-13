@@ -1,0 +1,30 @@
+{
+  "name": "ref-image-handwritten-v2",
+  "source_of_truth": "assets/approved/reference-style/",
+  "canvas": [1080, 1350],
+  "invariants": {
+    "background": "warm cream paper with a soft edge vignette",
+    "headline": "oversized black brush-marker lettering",
+    "emphasis": "one rough yellow highlighted phrase with hand-drawn underline",
+    "body": "smaller quiet handwritten explanation",
+    "illustrations": "simple thick-outline technical doodles on purple, mint, blue, orange, pink, or yellow blocks",
+    "mascot": "large expressive blue thinking bird",
+    "payoff": "pink handwritten note or band",
+    "cta": "black brush panel appears on slide 5 only"
+  },
+  "layouts": {
+    "1": "curiosity cover: hero hook, short explanation, large mascot, compact 2x2 doodle grid, swipe cue",
+    "2": "tension/mechanism: hero statement, four-part horizontal flow, pink note, large mascot",
+    "3": "insight: hero statement, four-part horizontal flow, mascot, outlined speech bubble",
+    "4": "application: hero statement, four-part horizontal flow, pink note, large mascot",
+    "5": "payoff: hero statement, handwritten checklist, large black CTA, large mascot, connected pink save note"
+  },
+  "forbidden": [
+    "slide counter",
+    "dashboard-style header",
+    "thin geometric SaaS typography",
+    "large empty card template",
+    "tiny mascot",
+    "black CTA repeated on slides 1 through 4"
+  ]
+}

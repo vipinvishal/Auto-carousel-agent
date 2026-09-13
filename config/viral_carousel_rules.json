@@ -16,7 +16,11 @@
   "visual_rules": [
     "Use the approved Ref Image handwritten marker language.",
     "Use one visual focus at a time: big, then small bold, then quiet.",
-    "Use cream paper, thick black handwritten type, rough yellow highlights, pastel cards, doodle icons, blue bird mascot, pink takeaway banner, and black CTA panel.",
+    "Use cream paper, thick black handwritten type, rough yellow highlights, pastel doodle blocks, a large blue bird mascot, and pink takeaway notes.",
+    "The cover uses an oversized hook, one highlighted phrase, one quiet explanation, a large mascot, a compact doodle grid, and a swipe cue.",
+    "Middle slides use one mechanism or insight, one four-part visual flow, and one supporting note or speech bubble.",
+    "Only the payoff slide uses the large black brush CTA panel.",
+    "Never use the retired sparse SaaS-card layout, tiny mascot, slide counter, dashboard header, or repeated black CTA on every slide.",
     "Keep titles short and body copy readable on a portrait PNG."
   ],
   "preflight": [

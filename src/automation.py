@@ -21,6 +21,8 @@ from renderer import (
     APPROVED_REFERENCE_DIR,
     MASCOT_PATH,
     OUTPUT_SIZE,
+    REFERENCE_STYLE_DIR,
+    TEMPLATE_SPEC,
     VISUAL_TEMPLATE,
     render_slide,
 )
@@ -122,6 +124,7 @@ def build_package(
         "language": "English",
         "recipient_email": "vipinislearning@gmail.com",
         "visual_template": VISUAL_TEMPLATE,
+        "visual_template_source": TEMPLATE_SPEC["source_of_truth"],
         "render_mode": render_mode,
         "visual_dimensions": f"{OUTPUT_SIZE[0]}x{OUTPUT_SIZE[1]}",
         "post_lines": topic["post_lines"],
@@ -176,6 +179,12 @@ def validate(folder: Path, package: dict, slides: list[Path]) -> list[str]:
         errors.append("missing source note")
     if not MASCOT_PATH.exists():
         errors.append("approved mascot asset is missing")
+    if package.get("visual_template") != TEMPLATE_SPEC["name"]:
+        errors.append("package is not using the locked Ref Image template")
+    if package.get("visual_template_source") != TEMPLATE_SPEC["source_of_truth"]:
+        errors.append("package is not using the permanent Ref Image source")
+    if len(list(REFERENCE_STYLE_DIR.glob("*.png"))) != 8:
+        errors.append("permanent Ref Image library must contain eight source images")
     if len(list(APPROVED_REFERENCE_DIR.glob("slide-*.png"))) != 5:
         errors.append("approved reference carousel must contain five slides")
     if len(REFERENCE_SLIDES) != 5 or any(not path.exists() for path in REFERENCE_SLIDES):

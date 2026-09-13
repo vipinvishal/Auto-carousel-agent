@@ -20,9 +20,12 @@ from renderer import (  # noqa: E402
     FONT_BODY_BOLD,
     FONT_HAND,
     FONT_HAND_BOLD,
+    FONT_MARKER,
     MASCOT_PATH,
     OUTPUT_SIZE,
     REFERENCE_STYLE_DIR,
+    TEMPLATE_SPEC,
+    TEMPLATE_SPEC_PATH,
     VISUAL_TEMPLATE,
 )
 
@@ -30,6 +33,14 @@ from renderer import (  # noqa: E402
 class PipelineTests(unittest.TestCase):
     def test_schedule_is_three_ist_slots(self):
         self.assertEqual(automation.SLOTS, ("0900", "1200", "1700"))
+
+    def test_ref_image_template_is_the_only_dynamic_visual_contract(self):
+        self.assertTrue(TEMPLATE_SPEC_PATH.exists())
+        self.assertEqual(VISUAL_TEMPLATE, "ref-image-handwritten-v2")
+        self.assertEqual(TEMPLATE_SPEC["name"], VISUAL_TEMPLATE)
+        self.assertEqual(TEMPLATE_SPEC["source_of_truth"], "assets/approved/reference-style/")
+        self.assertIn("slide 5 only", TEMPLATE_SPEC["invariants"]["cta"])
+        self.assertIn("slide counter", TEMPLATE_SPEC["forbidden"])
 
     def test_research_rejects_bare_ai_mentions(self):
         self.assertFalse(research._is_technical_ai("Show HN: Hacker News, without AI"))
@@ -89,6 +100,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(package["pipeline_steps"][0], "topic_research")
         self.assertEqual(package["pipeline_steps"][-1], "gmail_delivery")
         self.assertEqual(package["visual_template"], VISUAL_TEMPLATE)
+        self.assertEqual(package["visual_template_source"], "assets/approved/reference-style/")
         with Image.open(slides[0]) as image:
             self.assertEqual(image.size, OUTPUT_SIZE)
             self.assertEqual(image.format, "PNG")
@@ -128,11 +140,10 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(slide.read_bytes(), reference.read_bytes())
 
     def test_approved_assets_and_bundled_fonts_exist(self):
-        for font_path in (FONT_HAND, FONT_HAND_BOLD, FONT_BODY, FONT_BODY_BOLD):
+        for font_path in (FONT_HAND, FONT_HAND_BOLD, FONT_MARKER, FONT_BODY, FONT_BODY_BOLD):
             self.assertTrue(Path(font_path).exists(), font_path)
         self.assertTrue(MASCOT_PATH.exists())
         self.assertEqual(len(list(APPROVED_REFERENCE_DIR.glob("slide-*.png"))), 5)
-        self.assertEqual(len(list(REFERENCE_STYLE_DIR.glob("*.png"))), 8)
         self.assertEqual(len(list(REFERENCE_STYLE_DIR.glob("*.png"))), 8)
 
 
